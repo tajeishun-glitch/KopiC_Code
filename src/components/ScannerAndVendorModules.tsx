@@ -8,6 +8,7 @@ import {
   SeedDefectRecord,
 } from "@/lib/seed-data";
 import { computeInventoryMetrics } from "@/lib/business-engine";
+import { PurchaseRequestModal } from "./PurchaseRequestModal";
 
 interface ScannerAndVendorProps {
   activeTab: "M01_SCANNER" | "M01_VENDOR";
@@ -17,6 +18,15 @@ interface ScannerAndVendorProps {
   inventory: SeedInventoryItem[];
   defects: SeedDefectRecord[];
   onNavigateTab: (tab: string) => void;
+  onSubmitPurchaseRequest?: (payload: {
+    vendorCode: string;
+    vendorName: string;
+    materialCode: string;
+    quantity: number;
+    targetDate: string;
+    urgency: "NORMAL" | "URGENT" | "EMERGENCY";
+    notes: string;
+  }) => void;
 }
 
 export function ScannerAndVendorModules({
@@ -27,6 +37,7 @@ export function ScannerAndVendorModules({
   inventory,
   defects,
   onNavigateTab,
+  onSubmitPurchaseRequest,
 }: ScannerAndVendorProps) {
   // M02 Scanner State
   const [selectedPresetCode, setSelectedPresetCode] = useState<string>("STL-002");
@@ -43,6 +54,7 @@ export function ScannerAndVendorModules({
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
   const [selectedEvaluationStatus, setSelectedEvaluationStatus] = useState<string>("ALL");
+  const [purchaseVendor, setPurchaseVendor] = useState<SeedVendor | null>(null);
 
   const activeMaterialCode = manualOverrideCode || selectedPresetCode;
   const recognizedMaterial =
@@ -590,9 +602,33 @@ export function ScannerAndVendorModules({
             <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-300">
               <strong className="text-amber-400">AI Risk Note:</strong> {v.performance.aiRiskSummary}
             </div>
+
+            {/* Send Purchase Request Button for Preferred Vendors */}
+            {v.performance.evaluationStatus === "PREFERRED" && (
+              <button
+                onClick={() => setPurchaseVendor(v)}
+                className="w-full mt-2 py-2 px-3 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm"
+              >
+                <span>📝 Send Purchase request</span>
+              </button>
+            )}
           </div>
         ))}
       </div>
+
+      {/* Purchase Request Modal */}
+      <PurchaseRequestModal
+        isOpen={!!purchaseVendor}
+        onClose={() => setPurchaseVendor(null)}
+        vendor={purchaseVendor}
+        projectCode={projectCode}
+        materials={materials}
+        onSubmitRequest={(payload) => {
+          if (onSubmitPurchaseRequest) {
+            onSubmitPurchaseRequest(payload);
+          }
+        }}
+      />
     </div>
   );
 }

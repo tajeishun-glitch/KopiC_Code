@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   SeedMilestone,
   SeedProgressUpdate,
@@ -92,12 +92,14 @@ export function EquipmentProgressRiskModules({
     "https://images.unsplash.com/photo-1541888946425-d09bb18086f6?auto=format&fit=crop&w=600&q=80"
   );
   const [msSuccessMsg, setMsSuccessMsg] = useState<string>("");
+  const progressFileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedPhotoModal, setSelectedPhotoModal] = useState<SeedPhoto | null>(null);
 
   // Photo gallery toggle (Max 3 visible by default)
   const [isPhotoGalleryExpanded, setIsPhotoGalleryExpanded] = useState<boolean>(false);
 
   // M06 Floating AI Copilot & Simulation State
-  const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
+  const [isChatOpen, setIsChatOpen] = useState<boolean>(true);
   const [chatInput, setChatInput] = useState<string>("");
   const [chatHistory, setChatHistory] = useState<
     {
@@ -221,68 +223,215 @@ export function EquipmentProgressRiskModules({
           </div>
         </div>
 
-        {/* Milestone Comparison Visual Chart Section */}
-        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+        {/* Attractive Visual Dashboard Charts Section (S-Curve Progress & Milestone Analytics) */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
             <div>
-              <h3 className="font-extrabold text-white text-base">
-                Milestone Progress Overview Chart
-              </h3>
-              <p className="text-xs text-slate-400">
-                Visual comparison of Target Planned vs Actual Verified Physical Completion.
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
+                <h3 className="font-extrabold text-white text-base">
+                  Physical Progress S-Curve & Milestone Performance Dashboard
+                </h3>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Earned Value Management (EVM) tracking Planned Progress baseline against Actual Verified Physical Completion.
               </p>
             </div>
             <div className="flex items-center gap-4 text-xs font-mono">
               <div className="flex items-center gap-1.5 text-sky-400">
-                <span className="w-3 h-2 bg-sky-500 rounded-sm inline-block" />
-                <span>Planned</span>
+                <span className="w-3 h-0.5 bg-sky-400 inline-block border-t-2 border-dashed border-sky-400" />
+                <span>Planned Baseline S-Curve</span>
               </div>
               <div className="flex items-center gap-1.5 text-amber-400">
-                <span className="w-3 h-2 bg-amber-500 rounded-sm inline-block" />
-                <span>Actual</span>
+                <span className="w-3 h-1 bg-amber-400 rounded-full inline-block" />
+                <span>Actual Verified Progress</span>
               </div>
             </div>
           </div>
 
-          {/* Attractive Visual Bar Comparison */}
-          <div className="space-y-4 pt-2">
-            {projMilestones.map((ms) => {
-              const isBehind = ms.actualProgress < ms.plannedProgress;
-              return (
-                <div key={ms.id} className="space-y-1.5">
-                  <div className="flex justify-between items-center text-xs">
-                    <span className="font-bold text-white">
-                      <span className="text-amber-400 font-mono">[{ms.milestoneCode}]</span> {ms.name}{" "}
-                      <span className="text-slate-400 font-normal">({ms.subcontractorName})</span>
-                    </span>
-                    <span className="font-mono">
-                      <strong className="text-sky-400">P: {ms.plannedProgress}%</strong> •{" "}
-                      <strong className={isBehind ? "text-rose-400" : "text-emerald-400"}>
-                        A: {ms.actualProgress}% ({ms.actualProgress - ms.plannedProgress}%)
-                      </strong>
-                    </span>
+          {/* Quick Metrics Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+              <span className="text-[10px] font-mono text-slate-400 uppercase">Overall Completion</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-xl font-mono font-extrabold text-amber-400">{currentProject.actualCompletion}%</span>
+                <span className="text-[11px] text-slate-500 font-mono">/ {currentProject.plannedCompletion}% Target</span>
+              </div>
+              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div className="bg-amber-400 h-full rounded-full" style={{ width: `${currentProject.actualCompletion}%` }} />
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+              <span className="text-[10px] font-mono text-slate-400 uppercase">Schedule Variance</span>
+              <div className="text-xl font-mono font-extrabold text-rose-400">
+                {currentProject.actualCompletion - currentProject.plannedCompletion}%
+              </div>
+              <span className="text-[10px] text-rose-300 font-mono">
+                ~14 Days Behind Critical Path
+              </span>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+              <span className="text-[10px] font-mono text-slate-400 uppercase">Trade Packages</span>
+              <div className="text-xl font-mono font-extrabold text-white">
+                {projMilestones.filter((m) => m.actualProgress >= m.plannedProgress).length} / {projMilestones.length}
+              </div>
+              <span className="text-[10px] text-emerald-400 font-mono">
+                On-Track or Completed
+              </span>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
+              <span className="text-[10px] font-mono text-slate-400 uppercase">Active Subcontractors</span>
+              <div className="text-xl font-mono font-extrabold text-indigo-300">
+                {new Set(projMilestones.map((m) => m.subcontractorCode)).size} Trades
+              </div>
+              <span className="text-[10px] text-slate-400 font-mono">
+                {projPhotos.length} site inspection photos
+              </span>
+            </div>
+          </div>
+
+          {/* S-Curve SVG Chart */}
+          <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+            <div className="flex justify-between items-center text-xs">
+              <span className="font-bold text-slate-200">Earned Value Cumulative Progress S-Curve (12 Months)</span>
+              <span className="text-[10px] font-mono text-slate-400">Cut-Off Date: November 2026</span>
+            </div>
+
+            <div className="w-full overflow-x-auto">
+              <svg viewBox="0 0 700 200" className="w-full h-44 min-w-[550px] overflow-visible">
+                <defs>
+                  <linearGradient id="plannedGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.25" />
+                    <stop offset="100%" stopColor="#38bdf8" stopOpacity="0.0" />
+                  </linearGradient>
+                  <linearGradient id="actualGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.3" />
+                    <stop offset="100%" stopColor="#f59e0b" stopOpacity="0.0" />
+                  </linearGradient>
+                </defs>
+
+                {/* Gridlines */}
+                {[180, 140, 100, 60, 20].map((y, idx) => (
+                  <g key={y}>
+                    <line x1="45" y1={y} x2="680" y2={y} stroke="#1e293b" strokeDasharray="3 3" />
+                    <text x="35" y={y + 3} fill="#64748b" fontSize="9" textAnchor="end" fontFamily="monospace">
+                      {idx * 25}%
+                    </text>
+                  </g>
+                ))}
+
+                {/* Month labels along x-axis */}
+                {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map(
+                  (m, i) => {
+                    const x = 55 + i * 54;
+                    return (
+                      <text key={m} x={x} y="195" fill="#64748b" fontSize="9" textAnchor="middle" fontFamily="monospace">
+                        {m}
+                      </text>
+                    );
+                  }
+                )}
+
+                {/* S-Curve Planned Baseline Area & Line */}
+                <path
+                  d="M 55,180 C 160,175 250,150 350,105 C 450,60 550,28 650,22 L 650,180 L 55,180 Z"
+                  fill="url(#plannedGrad)"
+                />
+                <path
+                  d="M 55,180 C 160,175 250,150 350,105 C 450,60 550,28 650,22"
+                  fill="none"
+                  stroke="#38bdf8"
+                  strokeWidth="2.5"
+                  strokeDasharray="4 4"
+                />
+
+                {/* Actual Verified Progress Line up to Month 11 (Nov) */}
+                <path
+                  d="M 55,180 C 160,176 250,155 350,120 C 430,95 520,78 595,71 L 595,180 L 55,180 Z"
+                  fill="url(#actualGrad)"
+                />
+                <path
+                  d="M 55,180 C 160,176 250,155 350,120 C 430,95 520,78 595,71"
+                  fill="none"
+                  stroke="#f59e0b"
+                  strokeWidth="3"
+                />
+
+                {/* Data Points on Actual */}
+                {[
+                  { x: 55, y: 180 },
+                  { x: 109, y: 178 },
+                  { x: 163, y: 172 },
+                  { x: 217, y: 162 },
+                  { x: 271, y: 148 },
+                  { x: 325, y: 128 },
+                  { x: 379, y: 110 },
+                  { x: 433, y: 95 },
+                  { x: 487, y: 85 },
+                  { x: 541, y: 77 },
+                  { x: 595, y: 71 },
+                ].map((pt, i) => (
+                  <circle key={i} cx={pt.x} cy={pt.y} r="3" fill="#f59e0b" stroke="#0f172a" strokeWidth="1" />
+                ))}
+
+                {/* Current Actual Pin (Nov) */}
+                <circle cx="595" cy="71" r="5" fill="#f59e0b" className="animate-ping opacity-60" />
+                <circle cx="595" cy="71" r="5" fill="#f59e0b" stroke="#ffffff" strokeWidth="1.5" />
+                <rect x="545" y="42" width="100" height="20" rx="4" fill="#0f172a" stroke="#f59e0b" strokeWidth="1" />
+                <text x="595" y="56" fill="#f59e0b" fontSize="10" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                  Actual: {currentProject.actualCompletion}% (Nov)
+                </text>
+              </svg>
+            </div>
+          </div>
+
+          {/* Subcontractor Package Completion Visual Bar Breakdown */}
+          <div className="space-y-3 pt-1">
+            <span className="text-xs font-bold text-slate-300">
+              Subcontractor Trade Packages Planned vs Actual Progress
+            </span>
+            <div className="space-y-3">
+              {projMilestones.map((ms) => {
+                const isBehind = ms.actualProgress < ms.plannedProgress;
+                return (
+                  <div key={ms.id} className="space-y-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-white">
+                        <span className="text-amber-400 font-mono">[{ms.milestoneCode}]</span> {ms.name}{" "}
+                        <span className="text-slate-400 font-normal">({ms.subcontractorName})</span>
+                      </span>
+                      <span className="font-mono text-xs">
+                        <span className="text-sky-400 mr-2">Plan: {ms.plannedProgress}%</span>
+                        <strong className={isBehind ? "text-rose-400" : "text-emerald-400"}>
+                          Act: {ms.actualProgress}% ({ms.actualProgress >= ms.plannedProgress ? `+${ms.actualProgress - ms.plannedProgress}%` : `${ms.actualProgress - ms.plannedProgress}%`})
+                        </strong>
+                      </span>
+                    </div>
+                    <div className="h-4 w-full bg-slate-950 rounded-lg p-0.5 border border-slate-800 flex flex-col justify-center gap-0.5">
+                      {/* Planned Bar */}
+                      <div
+                        className="h-1 bg-sky-500/70 rounded-full transition-all"
+                        style={{ width: `${ms.plannedProgress}%` }}
+                      />
+                      {/* Actual Bar */}
+                      <div
+                        className={`h-1.5 rounded-full transition-all ${
+                          isBehind ? "bg-rose-500" : "bg-amber-400"
+                        }`}
+                        style={{ width: `${ms.actualProgress}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-5 w-full bg-slate-950 rounded-lg p-0.5 border border-slate-800 flex flex-col justify-center gap-0.5">
-                    {/* Planned Bar */}
-                    <div
-                      className="h-1.5 bg-sky-500/80 rounded-full transition-all"
-                      style={{ width: `${ms.plannedProgress}%` }}
-                    />
-                    {/* Actual Bar */}
-                    <div
-                      className={`h-2 rounded-full transition-all ${
-                        isBehind ? "bg-rose-500" : "bg-amber-500"
-                      }`}
-                      style={{ width: `${ms.actualProgress}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
 
-        {/* 2-Column Split: Left = Update Milestone with Photo Attachment, Right = Planned vs Actual Milestones */}
+        {/* 2-Column Split: Left = Update Milestone Section, Right = Planned Vs Actual Milestone Section */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: Update Milestone Section (With Image Attachment Upload) */}
           <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
@@ -373,25 +522,112 @@ export function EquipmentProgressRiskModules({
                 />
               </div>
 
-              {/* Photo Attachment Upload / URL Field */}
-              <div>
-                <label className="block font-semibold text-slate-300 mb-1">
-                  Progress Photo Attachment
+              {/* Working Photo Attachment Upload Section */}
+              <div className="space-y-2 pt-1 border-t border-slate-800">
+                <label className="block font-semibold text-slate-300">
+                  Site Progress Photo Attachment
                 </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={msPhotoUrl}
-                    onChange={(e) => setMsPhotoUrl(e.target.value)}
-                    placeholder="Enter image URL or select photo..."
-                    className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none text-xs"
-                  />
-                  {msPhotoUrl && (
-                    <div className="h-9 w-9 rounded-lg border border-slate-700 overflow-hidden bg-slate-950 flex-shrink-0">
-                      <img src={msPhotoUrl} alt="Preview" className="h-full w-full object-cover" />
-                    </div>
-                  )}
+
+                {/* Hidden File Input */}
+                <input
+                  type="file"
+                  ref={progressFileInputRef}
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        setMsPhotoUrl(reader.result as string);
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  className="hidden"
+                />
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => progressFileInputRef.current?.click()}
+                    className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow transition-all"
+                  >
+                    <span>📷</span>
+                    <span>Upload Site Photo</span>
+                  </button>
+
+                  <div className="flex-1 min-w-[180px]">
+                    <input
+                      type="text"
+                      value={msPhotoUrl}
+                      onChange={(e) => setMsPhotoUrl(e.target.value)}
+                      placeholder="Or enter progress photo URL..."
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-white focus:outline-none text-xs"
+                    />
+                  </div>
                 </div>
+
+                {/* Sample Site Photos Quick Select */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-mono text-slate-400">Quick Samples:</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      {
+                        label: "🏗️ Rebar Cage Fix",
+                        url: "https://images.unsplash.com/photo-1541888946425-d09bb18086f6?auto=format&fit=crop&w=600&q=80",
+                      },
+                      {
+                        label: "🏢 Slab Concrete Pour",
+                        url: "https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&w=600&q=80",
+                      },
+                      {
+                        label: "🧱 Precast Wall Mount",
+                        url: "https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?auto=format&fit=crop&w=600&q=80",
+                      },
+                    ].map((sample) => (
+                      <button
+                        key={sample.label}
+                        type="button"
+                        onClick={() => setMsPhotoUrl(sample.url)}
+                        className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800"
+                      >
+                        {sample.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Live Preview Card */}
+                {msPhotoUrl && (
+                  <div className="relative rounded-lg border border-slate-700 bg-slate-950 p-2 flex items-center gap-3">
+                    <div className="h-16 w-20 rounded-md overflow-hidden bg-slate-900 border border-slate-800 flex-shrink-0">
+                      <img
+                        src={msPhotoUrl}
+                        alt="Progress Attachment Preview"
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0 text-xs space-y-0.5">
+                      <div className="font-bold text-white flex items-center gap-1.5">
+                        <span className="text-amber-400">Progress Photo Attached</span>
+                      </div>
+                      <div className="text-[11px] text-slate-300 truncate">
+                        Linked Milestone: <strong>{selectedMsCode}</strong>
+                      </div>
+                      <div className="text-[10px] text-slate-400 truncate">
+                        Will appear in Construction Progress gallery upon submission
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMsPhotoUrl("")}
+                      className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-900"
+                      title="Remove Photo"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
               </div>
 
               <button
@@ -402,7 +638,7 @@ export function EquipmentProgressRiskModules({
                     workCompleted: workDoneText,
                     workOutstanding: workOutText,
                     remarks: msRemarks,
-                    photoUrl: msPhotoUrl,
+                    photoUrl: msPhotoUrl || undefined,
                   });
                   setMsSuccessMsg(`✓ Milestone ${selectedMsCode} updated to ${newCompletionPct}% with photo.`);
                   setTimeout(() => setMsSuccessMsg(""), 3500);
@@ -417,15 +653,20 @@ export function EquipmentProgressRiskModules({
           {/* Right Column: Planned vs Actual Milestone Details */}
           <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-extrabold text-white text-base">
-                Planned vs. Actual Milestones
-              </h3>
+              <div>
+                <h3 className="font-extrabold text-white text-base">
+                  Planned Vs Actual Milestone Section
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Subcontractor trade packages, verified progress, and timeline delivery status.
+                </p>
+              </div>
               <span className="text-xs text-slate-400 font-mono">
                 {projMilestones.length} Active Packages
               </span>
             </div>
 
-            <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
+            <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1">
               {projMilestones.map((ms) => {
                 const isDelayed = ms.actualProgress < ms.plannedProgress;
                 const spendPct = Math.round(
@@ -490,54 +731,109 @@ export function EquipmentProgressRiskModules({
 
         {/* Construction Progress Photos Section (Show max 3 + View More Toggle) */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h3 className="font-extrabold text-white text-base">
-                Construction Progress Photos ({projPhotos.length})
-              </h3>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                <h3 className="font-extrabold text-white text-base">
+                  Construction Progress Photos ({projPhotos.length})
+                </h3>
+              </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                Site photographs captured and linked to milestone verification.
+                Site photographs captured and linked to milestone verification. Showing up to 3 photos initially.
               </p>
             </div>
             {projPhotos.length > 3 && (
               <button
                 onClick={() => setIsPhotoGalleryExpanded(!isPhotoGalleryExpanded)}
-                className="px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-amber-400 font-bold text-xs border border-slate-700 transition-all"
+                className="px-4 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-amber-400 font-bold text-xs border border-slate-700 shadow transition-all flex items-center gap-1.5"
               >
-                {isPhotoGalleryExpanded ? "▲ Show 3 Photos" : `▼ View More (${projPhotos.length - 3} More)`}
+                <span>{isPhotoGalleryExpanded ? "▲ Show 3 Photos Only" : `▼ View More (${projPhotos.length - 3} More Photos)`}</span>
               </button>
             )}
           </div>
 
+          {/* Photo Gallery Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {visiblePhotos.map((p) => (
               <div
                 key={p.id}
-                className="rounded-xl border border-slate-800 overflow-hidden bg-slate-950 text-xs flex flex-col justify-between"
+                onClick={() => setSelectedPhotoModal(p)}
+                className="rounded-xl border border-slate-800 overflow-hidden bg-slate-950 text-xs flex flex-col justify-between cursor-pointer hover:border-amber-400 transition-all group"
               >
-                <div className="relative h-44 w-full bg-slate-900">
+                <div className="relative h-48 w-full bg-slate-900 overflow-hidden">
                   <img
                     src={p.photoUrl}
                     alt={p.description}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
-                  <div className="absolute top-2 left-2 bg-slate-950/80 text-amber-400 text-[10px] font-mono px-2 py-0.5 rounded border border-slate-700">
+                  <div className="absolute top-2 left-2 bg-slate-950/85 text-amber-400 text-[10px] font-mono px-2 py-0.5 rounded border border-slate-700">
                     {p.milestoneCode}
                   </div>
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
+                    🔍 Click to Enlarge
+                  </div>
                 </div>
-                <div className="p-3 space-y-1">
-                  <div className="font-bold text-white text-xs">
+                <div className="p-3.5 space-y-1">
+                  <div className="font-bold text-white text-xs truncate">
                     {p.milestoneName}
                   </div>
-                  <p className="text-slate-400 text-[11px]">{p.description}</p>
-                  <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-800">
-                    Uploaded by {p.uploadedBy} on {p.uploadDate}
+                  <p className="text-slate-400 text-[11px] line-clamp-2">{p.description}</p>
+                  <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-800 flex justify-between">
+                    <span>By {p.uploadedBy}</span>
+                    <span className="font-mono">{p.uploadDate}</span>
                   </div>
                 </div>
               </div>
             ))}
           </div>
+
+          {projPhotos.length > 3 && !isPhotoGalleryExpanded && (
+            <div className="text-center pt-2">
+              <button
+                onClick={() => setIsPhotoGalleryExpanded(true)}
+                className="px-4 py-2 rounded-xl bg-slate-950 hover:bg-slate-800 text-amber-400 font-bold text-xs border border-slate-800 hover:border-amber-400/50 transition-all"
+              >
+                ▼ Click to View All {projPhotos.length} Construction Progress Photos
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* Construction Photo Lightbox Modal */}
+        {selectedPhotoModal && (
+          <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full overflow-hidden shadow-2xl">
+              <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+                <div>
+                  <span className="font-mono font-bold text-amber-400 text-xs">
+                    {selectedPhotoModal.milestoneCode} • {selectedPhotoModal.milestoneName}
+                  </span>
+                  <h4 className="font-bold text-white text-sm">Site Progress Documentation</h4>
+                </div>
+                <button
+                  onClick={() => setSelectedPhotoModal(null)}
+                  className="text-slate-400 hover:text-white font-bold p-1 text-sm"
+                >
+                  ✕
+                </button>
+              </div>
+              <div className="p-2 bg-black flex items-center justify-center max-h-[460px] overflow-hidden">
+                <img
+                  src={selectedPhotoModal.photoUrl}
+                  alt={selectedPhotoModal.description}
+                  className="max-h-[440px] w-auto object-contain rounded-lg"
+                />
+              </div>
+              <div className="p-3.5 bg-slate-950 border-t border-slate-800 text-xs space-y-1">
+                <p className="text-slate-300 font-medium">{selectedPhotoModal.description}</p>
+                <div className="text-[10px] text-slate-500 font-mono">
+                  Uploaded by {selectedPhotoModal.uploadedBy} on {selectedPhotoModal.uploadDate}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -814,34 +1110,60 @@ export function EquipmentProgressRiskModules({
         </div>
       </div>
 
-      {/* Floating AI Copilot Chat Window (Bottom-Right) */}
+      {/* Floating AI Copilot Launcher Button (when minimized) */}
+      {!isChatOpen && (
+        <button
+          onClick={() => setIsChatOpen(true)}
+          className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-2xl flex items-center gap-2.5 border-2 border-indigo-400/60 hover:scale-105 transition-all"
+        >
+          <span className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500" />
+          </span>
+          <span className="text-sm">🤖</span>
+          <span>Ask AI Risk Copilot 💬</span>
+        </button>
+      )}
+
+      {/* Floating AI Copilot Chat Window (At least 70% screen height: h-[75vh]) */}
       {isChatOpen && (
-        <div className="fixed bottom-6 right-6 w-[380px] sm:w-[440px] max-h-[580px] bg-slate-900 border-2 border-indigo-500/60 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden animate-fadeIn">
+        <div className="fixed bottom-6 right-6 w-[94vw] sm:w-[500px] md:w-[560px] h-[75vh] min-h-[540px] max-h-[88vh] bg-slate-900 border-2 border-indigo-500 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden backdrop-blur-md animate-fadeIn">
           {/* Header */}
-          <div className="bg-indigo-950 px-4 py-3 border-b border-indigo-500/40 flex items-center justify-between">
-            <div className="flex items-center gap-2">
+          <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-slate-900 px-4 py-3 border-b border-indigo-500/40 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
               <span className="h-3 w-3 rounded-full bg-emerald-400 animate-pulse" />
-              <h4 className="font-bold text-white text-sm">
-                BuildSmart AI Copilot
-              </h4>
+              <div>
+                <h4 className="font-extrabold text-white text-sm flex items-center gap-2">
+                  <span>BuildSmart AI Risk Copilot</span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 font-bold">
+                    75% Height
+                  </span>
+                </h4>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Live unified risk graph • Project: {projectCode}
+                </span>
+              </div>
             </div>
-            <button
-              onClick={() => setIsChatOpen(false)}
-              className="text-slate-400 hover:text-white font-bold text-sm"
-            >
-              ✕
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsChatOpen(false)}
+                className="text-slate-400 hover:text-white font-bold p-1.5 rounded-lg hover:bg-slate-800 text-sm transition-all"
+                title="Minimize Copilot Window"
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
-          {/* Quick Presets */}
-          <div className="p-2 bg-slate-950 border-b border-slate-800">
-            <div className="text-[10px] font-mono text-slate-400 mb-1">Quick Questions:</div>
-            <div className="flex flex-wrap gap-1">
+          {/* Quick Presets Bar */}
+          <div className="p-2.5 bg-slate-950 border-b border-slate-800">
+            <div className="text-[10px] font-mono text-slate-400 mb-1.5 font-bold">Quick Risk Queries:</div>
+            <div className="flex flex-wrap gap-1.5">
               {presetQuestions.map((q) => (
                 <button
                   key={q}
                   onClick={() => handleAskCopilot(q)}
-                  className="text-left text-[10px] bg-slate-900 hover:bg-indigo-900/60 text-slate-300 hover:text-white px-2 py-0.5 rounded border border-slate-800 truncate max-w-[200px]"
+                  className="text-left text-[10px] bg-slate-900 hover:bg-indigo-900/60 text-slate-300 hover:text-white px-2.5 py-1 rounded-lg border border-slate-800 hover:border-indigo-500/50 transition-all truncate max-w-[240px]"
                 >
                   {q}
                 </button>
@@ -849,45 +1171,52 @@ export function EquipmentProgressRiskModules({
             </div>
           </div>
 
-          {/* Chat Messages Body */}
-          <div className="flex-1 p-3 space-y-2.5 overflow-y-auto max-h-[320px] bg-slate-950/90 text-xs">
+          {/* Chat Messages Body (Takes full remaining vertical space with generous height) */}
+          <div className="flex-1 min-h-0 p-4 space-y-3 overflow-y-auto bg-slate-950/95 text-xs">
             {chatHistory.map((msg, idx) => (
               <div
                 key={idx}
-                className={`p-3 rounded-xl whitespace-pre-line ${
+                className={`p-3.5 rounded-xl whitespace-pre-line shadow-md ${
                   msg.role === "USER"
-                    ? "bg-indigo-600 text-white ml-8 font-medium"
-                    : "bg-slate-900 border border-slate-800 text-slate-200 mr-4 shadow"
+                    ? "bg-indigo-600 text-white ml-10 font-medium"
+                    : "bg-slate-900 border border-slate-800 text-slate-200 mr-6"
                 }`}
               >
-                <div className="font-bold text-[10px] text-slate-400 uppercase mb-1">
-                  {msg.role === "USER" ? currentUser.name : "AI Risk Copilot"}
+                <div className="font-bold text-[10px] text-slate-400 uppercase mb-1 flex items-center justify-between">
+                  <span>{msg.role === "USER" ? currentUser.name : "🤖 AI Risk Copilot"}</span>
+                  <span className="font-mono text-[9px] text-slate-500">Live DB</span>
                 </div>
-                <div>{msg.text}</div>
+                <div className="leading-relaxed">{msg.text}</div>
                 {msg.sources && msg.sources.length > 0 && (
-                  <div className="mt-1.5 pt-1.5 border-t border-slate-800 text-[10px] text-slate-400">
-                    Sources: {msg.sources.join(" • ")}
+                  <div className="mt-2 pt-2 border-t border-slate-800/80 text-[10px] text-slate-400 flex items-center gap-1.5 flex-wrap">
+                    <span className="font-mono text-slate-500">Sources:</span>
+                    {msg.sources.map((s) => (
+                      <span key={s} className="px-1.5 py-0.5 rounded bg-slate-800 text-indigo-300 font-mono text-[9px]">
+                        {s}
+                      </span>
+                    ))}
                   </div>
                 )}
               </div>
             ))}
           </div>
 
-          {/* Input Footer */}
+          {/* Sticky Input Footer */}
           <div className="p-3 bg-slate-900 border-t border-slate-800 flex gap-2">
             <input
               type="text"
-              placeholder="Ask AI Copilot about site risks..."
+              placeholder="Ask AI Copilot about site risks, delay impacts, or mitigation..."
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleAskCopilot(chatInput)}
-              className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
+              className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-400"
             />
             <button
               onClick={() => handleAskCopilot(chatInput)}
-              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs shadow transition-all flex items-center gap-1"
             >
-              Send
+              <span>Send</span>
+              <span>→</span>
             </button>
           </div>
         </div>

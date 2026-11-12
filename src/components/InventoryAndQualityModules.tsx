@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
   SeedInventoryItem,
   SeedMaterial,
@@ -66,6 +66,8 @@ interface InventoryAndQualityProps {
     defectCode: string,
     status: SeedDefectRecord["status"]
   ) => void;
+  onSyncInventory?: () => void;
+  onNavigateTab?: (tab: string) => void;
 }
 
 type SortField =
@@ -94,8 +96,39 @@ export function InventoryAndQualityModules({
   onTransferMaterial,
   onReportDefect,
   onUpdateDefectStatus,
+  onSyncInventory,
+  onNavigateTab,
 }: InventoryAndQualityProps) {
   const perms = getRolePermissions(currentUser.role);
+  const defectFileInputRef = useRef<HTMLInputElement>(null);
+  const [defectPhotoModal, setDefectPhotoModal] = useState<{
+    url: string;
+    defectCode: string;
+    vendorName: string;
+    desc: string;
+  } | null>(null);
+
+  // Synchronization state
+  const [isSyncing, setIsSyncing] = useState<boolean>(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string>("Just now");
+  const [syncNotice, setSyncNotice] = useState<string>("");
+
+  const handleSyncClick = () => {
+    setIsSyncing(true);
+    setSyncNotice("Synchronizing with project warehouses & central ERP...");
+    setTimeout(() => {
+      setIsSyncing(false);
+      const timeStr = new Date().toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+      setLastSyncTime(timeStr);
+      setSyncNotice("Inventory synchronized successfully with site warehouses!");
+      if (onSyncInventory) onSyncInventory();
+      setTimeout(() => setSyncNotice(""), 3500);
+    }, 1100);
+  };
 
   // M04 Live Stock Table Sorting & Filtering State
   const [sortField, setSortField] = useState<SortField>("materialCode");
@@ -230,7 +263,7 @@ export function InventoryAndQualityModules({
     });
 
   // =========================================================================
-  // M04: LIVE STOCK INVENTORY (WITH SORTING & FILTERING)
+  // M04: LIVE INVENTORY INFO (WITH SORTING, FILTERING & SYNC)
   // =========================================================================
   if (activeTab === "M02_INVENTORY") {
     return (
@@ -240,25 +273,71 @@ export function InventoryAndQualityModules({
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                MODULE 04 • LIVE STOCK INVENTORY
+                MODULE 04 • LIVE INVENTORY INFO
               </span>
               <span className="text-xs text-slate-400 font-mono">
                 Project: <strong className="text-amber-400">{projectCode}</strong>
               </span>
             </div>
             <h2 className="text-xl font-extrabold text-white">
-              Live Site Stock & Material Consumption Tracker
+              Live Inventory info
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
               Real-time available stock = Current Stock − Reserved Stock. Click table headers to sort; filter by operational status.
             </p>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Sync Status & Sync Action on Top Right */}
+          <div className="flex items-center gap-2.5">
+            <div className="text-right hidden sm:block">
+              <div className="flex items-center justify-end gap-1.5 text-xs font-mono font-bold">
+                <span className={`inline-block w-2 h-2 rounded-full ${isSyncing ? "bg-amber-400 animate-ping" : "bg-emerald-400"}`} />
+                <span className={isSyncing ? "text-amber-300" : "text-emerald-400"}>
+                  {isSyncing ? "Syncing..." : "Synced"}
+                </span>
+              </div>
+              <div className="text-[10px] text-slate-400 font-mono">
+                Last sync: {lastSyncTime}
+              </div>
+            </div>
+
+            <button
+              onClick={handleSyncClick}
+              disabled={isSyncing}
+              className="p-2.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-700 text-amber-400 hover:text-amber-300 transition-all flex items-center gap-1.5 shadow-md group"
+              title="Synchronize inventory with project ERP and site warehouses"
+            >
+              <svg
+                className={`w-4 h-4 transition-transform ${isSyncing ? "animate-spin text-amber-400" : "group-hover:rotate-180"}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2.5}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+              <span className="text-xs font-mono font-bold hidden md:inline">
+                {isSyncing ? "Synchronizing..." : "Sync Stock"}
+              </span>
+            </button>
+
             <span className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-slate-950 border border-slate-700 text-amber-400">
-              Total Materials: {projInventory.length}
+              Total Items: {projInventory.length}
             </span>
           </div>
         </div>
+
+        {/* Sync Notification Banner */}
+        {syncNotice && (
+          <div className="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold flex items-center justify-between animate-fadeIn">
+            <span>🔄 {syncNotice}</span>
+            <span className="text-[10px] font-mono text-emerald-400">Verified by BuildSmart Engine</span>
+          </div>
+        )}
 
         {/* Filter Bar & Header Sorting Controls */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-md flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -875,25 +954,117 @@ export function InventoryAndQualityModules({
               />
             </div>
 
-            {/* Photo Attachment Field */}
-            <div className="sm:col-span-2">
-              <label className="block font-semibold text-slate-300 mb-1">
-                Defect Photo Attachment (URL / Upload)
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={defPhotoUrl}
-                  onChange={(e) => setDefPhotoUrl(e.target.value)}
-                  placeholder="Paste site defect photo URL..."
-                  className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none text-xs"
-                />
-                {defPhotoUrl && (
-                  <div className="h-9 w-9 rounded-lg border border-slate-700 overflow-hidden bg-slate-950 flex-shrink-0">
-                    <img src={defPhotoUrl} alt="Preview" className="h-full w-full object-cover" />
-                  </div>
-                )}
+            {/* Defect Photo Attachment Field (Real File Upload + Presets + Reflects Vendor Badge) */}
+            <div className="sm:col-span-2 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block font-semibold text-slate-300">
+                  Defect Photo Attachment (Reflects Vendor)
+                </label>
+                <span className="text-[10px] font-mono text-amber-400">
+                  Reflects: {vendors.find((v) => v.vendorCode === defVendorCode)?.name || defVendorCode}
+                </span>
               </div>
+
+              {/* Hidden Real File Input */}
+              <input
+                type="file"
+                ref={defectFileInputRef}
+                accept="image/*"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      setDefPhotoUrl(reader.result as string);
+                    };
+                    reader.readAsDataURL(file);
+                  }
+                }}
+                className="hidden"
+              />
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => defectFileInputRef.current?.click()}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow transition-all"
+                >
+                  <span>📷</span>
+                  <span>Upload Image File</span>
+                </button>
+
+                <div className="flex-1 min-w-[200px]">
+                  <input
+                    type="text"
+                    value={defPhotoUrl}
+                    onChange={(e) => setDefPhotoUrl(e.target.value)}
+                    placeholder="Or paste site photo URL..."
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-white focus:outline-none text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Preset Site Defect Image Quick Select */}
+              <div className="space-y-1">
+                <span className="text-[10px] font-mono text-slate-400">Sample Defect Photos:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    {
+                      label: "🔩 Rebar Corrosion (Apex)",
+                      url: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80",
+                    },
+                    {
+                      label: "🧱 Cracked Panel (Sunway)",
+                      url: "https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&w=600&q=80",
+                    },
+                    {
+                      label: "📦 Torn Bags (Lafarge)",
+                      url: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=600&q=80",
+                    },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setDefPhotoUrl(preset.url)}
+                      className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700"
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Live Preview Box with Vendor Reflection Badge */}
+              {defPhotoUrl && (
+                <div className="relative rounded-lg border border-slate-700 bg-slate-950 p-2 flex items-center gap-3">
+                  <div className="h-16 w-20 rounded-md overflow-hidden bg-slate-900 border border-slate-800 flex-shrink-0">
+                    <img
+                      src={defPhotoUrl}
+                      alt="Defect Attachment Preview"
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0 text-xs space-y-0.5">
+                    <div className="font-bold text-white flex items-center gap-1.5">
+                      <span className="text-rose-400">Defect Image Attached</span>
+                    </div>
+                    <div className="text-[11px] text-amber-300 font-medium truncate">
+                      Reflects Vendor: <strong className="text-white">{vendors.find((v) => v.vendorCode === defVendorCode)?.name || defVendorCode}</strong>
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      Material: {defMatCode} • DO: {defRef}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDefPhotoUrl("")}
+                    className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-900"
+                    title="Remove Photo"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -909,7 +1080,7 @@ export function InventoryAndQualityModules({
                 rejectedQty: defRejectedQty,
                 description: defDescription,
                 correctiveActionText: defCorrective,
-                photoUrl: defPhotoUrl,
+                photoUrl: defPhotoUrl || undefined,
               });
               setDefectFormSuccess(`✓ Defect submitted successfully & vendor evaluation score updated.`);
               setTimeout(() => setDefectFormSuccess(""), 4000);
@@ -940,7 +1111,7 @@ export function InventoryAndQualityModules({
               return (
                 <div
                   key={d.id}
-                  className="p-4 rounded-xl border border-slate-800 bg-slate-950/70 space-y-2 text-xs"
+                  className="p-4 rounded-xl border border-slate-800 bg-slate-950/70 space-y-2.5 text-xs"
                 >
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
@@ -1012,10 +1183,43 @@ export function InventoryAndQualityModules({
                     </div>
                   )}
 
-                  <div className="font-semibold text-slate-200">
-                    Vendor: <strong className="text-white">{ven?.name || d.vendorCode}</strong> ({d.vendorCode}) • Material: {d.materialCode} • Ref: {d.deliveryRef} • Rejected: {d.rejectedQty}
+                  {/* Vendor Reflection Tag & Defect Summary */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                      ⚠️ Reflects Vendor: <strong className="text-white">{ven?.name || d.vendorCode}</strong> ({d.vendorCode})
+                    </span>
+                    <span className="text-slate-400 font-mono text-[11px]">
+                      Material: {d.materialCode} • Ref: {d.deliveryRef} • Rejected: {d.rejectedQty} units
+                    </span>
                   </div>
-                  <p className="text-slate-400">{d.description}</p>
+
+                  {/* Photo Thumbnail + Description */}
+                  <div className="flex gap-3 items-start">
+                    {d.photoUrl && (
+                      <div
+                        onClick={() =>
+                          setDefectPhotoModal({
+                            url: d.photoUrl!,
+                            defectCode: d.defectCode,
+                            vendorName: ven?.name || d.vendorCode,
+                            desc: d.description,
+                          })
+                        }
+                        className="h-16 w-20 rounded-lg overflow-hidden bg-slate-900 border border-slate-700 flex-shrink-0 cursor-pointer hover:border-amber-400 hover:opacity-90 transition-all relative group"
+                        title="Click to zoom defect photo"
+                      >
+                        <img
+                          src={d.photoUrl}
+                          alt={d.defectCode}
+                          className="h-full w-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
+                          🔍
+                        </div>
+                      </div>
+                    )}
+                    <p className="text-slate-300 flex-1">{d.description}</p>
+                  </div>
 
                   <div className="flex justify-between items-center text-[11px] text-slate-500 pt-1 border-t border-slate-800/60">
                     <span>
@@ -1043,101 +1247,230 @@ export function InventoryAndQualityModules({
         </div>
       </div>
 
-      {/* Bottom Section: Live Vendor Performance Scorecard (Reduced size, max 3 vendors default + 'View More' toggle) */}
+      {/* Bottom Section: Live Vendor Performance Scorecard (Reduced Section Size, Top 3 Only + View More to Vendor Finder) */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
               <h3 className="font-extrabold text-white text-base">
-                Live Vendor Performance Scorecard (Historical & Active Site Data)
+                Live Vendor Performance Scorecard
               </h3>
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                Top 3 Vendors Display
+              </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Formula: 40% On-Time Delivery + 40% Quality Acceptance + 20% Issue Resolution
+              Live score formula: 40% On-Time Delivery + 40% Quality Acceptance + 20% Issue Resolution. Directly affected by defect logs above.
             </p>
           </div>
-          <span className="text-xs font-mono text-slate-400">
-            Showing {isVendorScorecardExpanded ? vendors.length : Math.min(3, vendors.length)} of {vendors.length} Vendors
-          </span>
+          <div className="flex items-center gap-2">
+            {onNavigateTab && (
+              <button
+                onClick={() => onNavigateTab("M01_VENDOR")}
+                className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow flex items-center gap-1.5 transition-all"
+              >
+                <span>🔍 View More in Vendor Finder</span>
+                <span>→</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-950 text-slate-400 border-b border-slate-800 font-mono">
-                <th className="py-2.5 px-3">Vendor / Trade</th>
-                <th className="py-2.5 px-3">Score</th>
-                <th className="py-2.5 px-3">On-Time (40%)</th>
-                <th className="py-2.5 px-3">Quality (40%)</th>
-                <th className="py-2.5 px-3">Resolution (20%)</th>
-                <th className="py-2.5 px-3">Open Defects</th>
-                <th className="py-2.5 px-3">Status</th>
-                <th className="py-2.5 px-3">AI Risk Summary</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {(isVendorScorecardExpanded ? vendors : vendors.slice(0, 3)).map((v) => (
-                <tr key={v.vendorCode} className="hover:bg-slate-800/40">
-                  <td className="py-2.5 px-3">
-                    <div className="font-bold text-white">{v.name}</div>
-                    <div className="text-[11px] text-slate-400 font-mono">{v.vendorCode} • {v.tradeSpecialty}</div>
-                  </td>
-                  <td className="py-2.5 px-3 font-mono font-extrabold text-amber-400 text-sm">
-                    {v.performance.overallScore}%
-                  </td>
-                  <td className="py-2.5 px-3 font-mono">
-                    <div className="font-bold text-white">{v.performance.onTimeDeliveryRate}%</div>
-                    <div className="text-[10px] text-slate-500">{v.performance.onTimeDeliveries}/{v.performance.totalDeliveries}</div>
-                  </td>
-                  <td className="py-2.5 px-3 font-mono">
-                    <div className="font-bold text-white">{v.performance.qualityAcceptanceRate}%</div>
-                    <div className="text-[10px] text-slate-500">{v.performance.rejectedQty} rejected</div>
-                  </td>
-                  <td className="py-2.5 px-3 font-mono text-slate-300">
-                    {v.performance.issueResolutionRate}%
-                  </td>
-                  <td className="py-2.5 px-3">
-                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                      v.performance.openDefectsCount > 0 ? "bg-rose-500/20 text-rose-300" : "bg-emerald-500/20 text-emerald-300"
-                    }`}>
-                      {v.performance.openDefectsCount} open
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3">
-                    <span className={`inline-block px-2 py-0.5 rounded font-bold text-[10px] font-mono ${
-                      v.performance.evaluationStatus === "PREFERRED"
-                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                        : v.performance.evaluationStatus === "WATCHLIST"
-                          ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                          : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
-                    }`}>
+        {/* Compact Top-3 Vendor Cards Grid (Reduced Section Size) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {vendors.slice(0, 3).map((v, idx) => {
+            const statusColor =
+              v.performance.evaluationStatus === "PREFERRED"
+                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                : v.performance.evaluationStatus === "WATCHLIST"
+                  ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                  : "bg-rose-500/20 text-rose-300 border-rose-500/40";
+
+            return (
+              <div
+                key={v.vendorCode}
+                className="p-4 rounded-xl border border-slate-800 bg-slate-950/70 hover:border-slate-700 transition-all space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-1.5 py-0.5 rounded bg-slate-800 font-mono text-[10px] text-slate-400 font-bold">
+                        #{idx + 1}
+                      </span>
+                      <h4 className="font-bold text-white text-sm">{v.name}</h4>
+                    </div>
+                    <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                      {v.vendorCode} • {v.tradeSpecialty}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-mono font-black text-amber-400">
+                      {v.performance.overallScore}%
+                    </div>
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded text-[9px] font-mono font-bold border ${statusColor}`}
+                    >
                       {v.performance.evaluationStatus}
                     </span>
-                  </td>
-                  <td className="py-2.5 px-3 text-[11px] text-slate-400 max-w-xs truncate">
-                    {v.performance.aiRiskSummary}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+
+                {/* Score Breakdown Bars */}
+                <div className="grid grid-cols-3 gap-2 text-[10px] font-mono pt-1 border-t border-slate-800/80">
+                  <div className="bg-slate-900 p-2 rounded border border-slate-800">
+                    <div className="text-slate-400">On-Time</div>
+                    <div className="font-bold text-sky-400 text-xs">
+                      {v.performance.onTimeDeliveryRate}%
+                    </div>
+                  </div>
+                  <div className="bg-slate-900 p-2 rounded border border-slate-800">
+                    <div className="text-slate-400">Quality</div>
+                    <div className="font-bold text-emerald-400 text-xs">
+                      {v.performance.qualityAcceptanceRate}%
+                    </div>
+                  </div>
+                  <div className="bg-slate-900 p-2 rounded border border-slate-800">
+                    <div className="text-slate-400">Open Defs</div>
+                    <div className={`font-bold text-xs ${v.performance.openDefectsCount > 0 ? "text-rose-400" : "text-slate-300"}`}>
+                      {v.performance.openDefectsCount}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-slate-400 bg-slate-900/60 p-2 rounded border border-slate-800/60 line-clamp-2">
+                  <span className="font-semibold text-slate-300">AI Summary:</span> {v.performance.aiRiskSummary}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* View More / View Less Toggle Button */}
+        {/* More than 3 vendors note & Expandable toggle */}
         {vendors.length > 3 && (
-          <div className="text-center pt-2 border-t border-slate-800">
-            <button
-              onClick={() => setIsVendorScorecardExpanded(!isVendorScorecardExpanded)}
-              className="px-4 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-amber-400 font-bold text-xs border border-slate-700 transition-all"
-            >
-              {isVendorScorecardExpanded
-                ? "▲ Show Less Vendors"
-                : `▼ View More (${vendors.length - 3} Remaining Vendors)`}
-            </button>
+          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="text-slate-400">
+              Showing top 3 of <strong className="text-white">{vendors.length}</strong> site vendors. More than 3 vendors registered.
+            </div>
+            <div className="flex items-center gap-2">
+              {onNavigateTab && (
+                <button
+                  onClick={() => onNavigateTab("M01_VENDOR")}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow transition-all"
+                >
+                  View All {vendors.length} Vendors in Vendor Finder →
+                </button>
+              )}
+              <button
+                onClick={() => setIsVendorScorecardExpanded(!isVendorScorecardExpanded)}
+                className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold text-xs border border-slate-700 transition-all"
+              >
+                {isVendorScorecardExpanded ? "▲ Hide Table" : `▼ View Full Table Inline (${vendors.length - 3} More)`}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Expanded Full Table (Only shown if toggled) */}
+        {isVendorScorecardExpanded && (
+          <div className="overflow-x-auto pt-2 border-t border-slate-800">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-950 text-slate-400 border-b border-slate-800 font-mono">
+                  <th className="py-2.5 px-3">Vendor / Trade</th>
+                  <th className="py-2.5 px-3">Score</th>
+                  <th className="py-2.5 px-3">On-Time (40%)</th>
+                  <th className="py-2.5 px-3">Quality (40%)</th>
+                  <th className="py-2.5 px-3">Resolution (20%)</th>
+                  <th className="py-2.5 px-3">Open Defects</th>
+                  <th className="py-2.5 px-3">Status</th>
+                  <th className="py-2.5 px-3">AI Risk Summary</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800">
+                {vendors.map((v) => (
+                  <tr key={v.vendorCode} className="hover:bg-slate-800/40">
+                    <td className="py-2.5 px-3">
+                      <div className="font-bold text-white">{v.name}</div>
+                      <div className="text-[11px] text-slate-400 font-mono">{v.vendorCode} • {v.tradeSpecialty}</div>
+                    </td>
+                    <td className="py-2.5 px-3 font-mono font-extrabold text-amber-400 text-sm">
+                      {v.performance.overallScore}%
+                    </td>
+                    <td className="py-2.5 px-3 font-mono">
+                      <div className="font-bold text-white">{v.performance.onTimeDeliveryRate}%</div>
+                      <div className="text-[10px] text-slate-500">{v.performance.onTimeDeliveries}/{v.performance.totalDeliveries}</div>
+                    </td>
+                    <td className="py-2.5 px-3 font-mono">
+                      <div className="font-bold text-white">{v.performance.qualityAcceptanceRate}%</div>
+                      <div className="text-[10px] text-slate-500">{v.performance.rejectedQty} rejected</div>
+                    </td>
+                    <td className="py-2.5 px-3 font-mono text-slate-300">
+                      {v.performance.issueResolutionRate}%
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                        v.performance.openDefectsCount > 0 ? "bg-rose-500/20 text-rose-300" : "bg-emerald-500/20 text-emerald-300"
+                      }`}>
+                        {v.performance.openDefectsCount} open
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3">
+                      <span className={`inline-block px-2 py-0.5 rounded font-bold text-[10px] font-mono ${
+                        v.performance.evaluationStatus === "PREFERRED"
+                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
+                          : v.performance.evaluationStatus === "WATCHLIST"
+                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                            : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                      }`}>
+                        {v.performance.evaluationStatus}
+                      </span>
+                    </td>
+                    <td className="py-2.5 px-3 text-[11px] text-slate-400 max-w-xs truncate">
+                      {v.performance.aiRiskSummary}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
+
+      {/* Defect Photo Lightbox Modal */}
+      {defectPhotoModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full overflow-hidden shadow-2xl">
+            <div className="p-4 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+              <div>
+                <span className="font-mono font-bold text-amber-400 text-xs">
+                  {defectPhotoModal.defectCode}
+                </span>
+                <h4 className="font-bold text-white text-sm">Defect Evidence Photo</h4>
+                <div className="text-[11px] text-rose-300 font-medium">
+                  Reflects Vendor: {defectPhotoModal.vendorName}
+                </div>
+              </div>
+              <button
+                onClick={() => setDefectPhotoModal(null)}
+                className="text-slate-400 hover:text-white font-bold p-1 text-sm"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 bg-black flex items-center justify-center max-h-[420px] overflow-hidden">
+              <img
+                src={defectPhotoModal.url}
+                alt={defectPhotoModal.defectCode}
+                className="max-h-[400px] w-auto object-contain rounded-lg shadow-lg"
+              />
+            </div>
+            <div className="p-3 bg-slate-950 border-t border-slate-800 text-xs text-slate-300">
+              <p className="italic">{defectPhotoModal.desc}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
