@@ -61,7 +61,20 @@ interface InventoryAndQualityProps {
     description: string;
     correctiveActionText: string;
     photoUrl?: string;
+    defectType?: "VENDOR_DEFECT" | "DELIVERY_DEFECT";
+    transporterName?: string;
+    lorryPlate?: string;
+    bayGate?: string;
+    damagedPkgCount?: number;
+    driverRemarks?: string;
+    batchNumber?: string;
+    millCertRef?: string;
   }) => void;
+  onValidateDefect?: (
+    defectCode: string,
+    isApproved: boolean,
+    denialReason?: string
+  ) => void;
   onUpdateDefectStatus: (
     defectCode: string,
     status: SeedDefectRecord["status"]
@@ -95,6 +108,7 @@ export function InventoryAndQualityModules({
   onRecordGoodsReceipt,
   onTransferMaterial,
   onReportDefect,
+  onValidateDefect,
   onUpdateDefectStatus,
   onSyncInventory,
   onNavigateTab,
@@ -149,42 +163,65 @@ export function InventoryAndQualityModules({
         : invModalMode === "TRANSFER" && !perms.canTransferMaterialSurplus
           ? defaultInvMode
           : invModalMode;
-  const [selectedMatCode, setSelectedMatCode] = useState<string>("STL-002");
-  const [qtyInput, setQtyInput] = useState<number>(25);
-  const [rejectedInput, setRejectedInput] = useState<number>(0);
-  const [activityInput, setActivityInput] = useState<string>(
-    "Zone B Transfer Beam & Concourse Slab Reinforcement"
-  );
-  const [deliveryRefInput, setDeliveryRefInput] =
-    useState<string>("DO-MTR-9981");
-  const [receiptVendorCode, setReceiptVendorCode] = useState<string>("V003");
-  const [destProjCode, setDestProjCode] = useState<string>(
-    projectCode === "PRJ-ALPHA" ? "PRJ-GAMMA" : "PRJ-ALPHA"
-  );
-  const [remarksInput, setRemarksInput] = useState<string>(
-    "Logged via BuildSmart AI Site Console"
-  );
+
+  // Movement inputs start plain/empty at first
+  const [selectedMatCode, setSelectedMatCode] = useState<string>("");
+  const [qtyInput, setQtyInput] = useState<string>("");
+  const [rejectedInput, setRejectedInput] = useState<string>("");
+  const [activityInput, setActivityInput] = useState<string>("");
+  const [deliveryRefInput, setDeliveryRefInput] = useState<string>("");
+  const [receiptVendorCode, setReceiptVendorCode] = useState<string>("");
+  const [destProjCode, setDestProjCode] = useState<string>("");
+  const [remarksInput, setRemarksInput] = useState<string>("");
   const [feedbackMsg, setFeedbackMsg] = useState<string>("");
 
-  // M05 Defect Log Form State
-  const [defMatCode, setDefMatCode] = useState<string>("STL-002");
-  const [defVendorCode, setDefVendorCode] = useState<string>("V002");
-  const [defRef, setDefRef] = useState<string>("DO-APEX-7802");
-  const [defCategory, setDefCategory] =
-    useState<SeedDefectRecord["category"]>("Damaged materials");
-  const [defSeverity, setDefSeverity] =
-    useState<SeedDefectRecord["severity"]>("HIGH");
-  const [defRejectedQty, setDefRejectedQty] = useState<number>(12);
-  const [defDescription, setDefDescription] = useState<string>(
-    "Site Worker inspection at unloading bay: 12 MT of T16 rebar bundles arrived bent with severe surface rust scale and missing mill tag."
-  );
-  const [defCorrective, setDefCorrective] = useState<string>(
-    "Quarantine 12 MT in Reject Bay, deduct from accepted GRN, and flag vendor scorecard for future tender review."
-  );
-  const [defPhotoUrl, setDefPhotoUrl] = useState<string>(
-    "https://images.unsplash.com/photo-1541888946425-d09bb18086f6?auto=format&fit=crop&w=600&q=80"
-  );
+  // Helper to switch inventory request type and reset all form inputs ("data gone on switch")
+  const handleSwitchInvMode = (mode: "CONSUMPTION" | "RECEIPT" | "TRANSFER") => {
+    setInvModalMode(mode);
+    setSelectedMatCode("");
+    setQtyInput("");
+    setRejectedInput("");
+    setActivityInput("");
+    setDeliveryRefInput("");
+    setReceiptVendorCode("");
+    setDestProjCode("");
+    setRemarksInput("");
+    setFeedbackMsg("");
+  };
+
+  // M05 Form Selection: Separate Vendor Defect vs Delivery Defect Forms
+  const [activeDefectForm, setActiveDefectForm] = useState<"VENDOR" | "DELIVERY">("VENDOR");
+
+  // M05 Plain Vendor Defect Form State (Empty by default)
+  const [defMatCode, setDefMatCode] = useState<string>("");
+  const [defVendorCode, setDefVendorCode] = useState<string>("");
+  const [defRef, setDefRef] = useState<string>("");
+  const [defBatchNumber, setDefBatchNumber] = useState<string>("");
+  const [defMillCert, setDefMillCert] = useState<string>("");
+  const [defCategory, setDefCategory] = useState<string>("");
+  const [defSeverity, setDefSeverity] = useState<SeedDefectRecord["severity"]>("HIGH");
+  const [defRejectedQty, setDefRejectedQty] = useState<string>("");
+  const [defDescription, setDefDescription] = useState<string>("");
+  const [defCorrective, setDefCorrective] = useState<string>("");
+  const [defPhotoUrl, setDefPhotoUrl] = useState<string>("");
+
+  // M05 Plain Delivery Defect Form State (Empty by default)
+  const [delRef, setDelRef] = useState<string>("");
+  const [delTransporter, setDelTransporter] = useState<string>("");
+  const [delLorryPlate, setDelLorryPlate] = useState<string>("");
+  const [delBayGate, setDelBayGate] = useState<string>("");
+  const [delCategory, setDelCategory] = useState<string>("");
+  const [delSeverity, setDelSeverity] = useState<SeedDefectRecord["severity"]>("MEDIUM");
+  const [delDamagedPkgs, setDelDamagedPkgs] = useState<string>("");
+  const [delDriverRemarks, setDelDriverRemarks] = useState<string>("");
+  const [delAction, setDelAction] = useState<string>("");
+  const [delPhotoUrl, setDelPhotoUrl] = useState<string>("");
+
   const [defectFormSuccess, setDefectFormSuccess] = useState<string>("");
+
+  // Manager Defect Denial Modal State
+  const [denyModalDefectCode, setDenyModalDefectCode] = useState<string | null>(null);
+  const [denialReasonText, setDenialReasonText] = useState<string>("");
 
   // State for pending defect status edits in table (Confirmation Save Workflow)
   const [pendingStatuses, setPendingStatuses] = useState<{
@@ -192,8 +229,37 @@ export function InventoryAndQualityModules({
   }>({});
   const [statusSaveMsg, setStatusSaveMsg] = useState<{ [defectCode: string]: string }>({});
 
-  // Vendor Scorecard Expansion Toggle (Show max 3 by default)
-  const [isVendorScorecardExpanded, setIsVendorScorecardExpanded] = useState<boolean>(false);
+  const clearVendorForm = () => {
+    setDefMatCode("");
+    setDefVendorCode("");
+    setDefRef("");
+    setDefBatchNumber("");
+    setDefMillCert("");
+    setDefCategory("");
+    setDefSeverity("HIGH");
+    setDefRejectedQty("");
+    setDefDescription("");
+    setDefCorrective("");
+    setDefPhotoUrl("");
+  };
+
+  const clearDeliveryForm = () => {
+    setDelRef("");
+    setDelTransporter("");
+    setDelLorryPlate("");
+    setDelBayGate("");
+    setDelCategory("");
+    setDelSeverity("MEDIUM");
+    setDelDamagedPkgs("");
+    setDelDriverRemarks("");
+    setDelAction("");
+    setDelPhotoUrl("");
+  };
+
+  const handleSwitchDefectForm = (form: "VENDOR" | "DELIVERY") => {
+    setActiveDefectForm(form);
+    setDefectFormSuccess("");
+  };
 
   const projInventory = inventory.filter((i) => i.projectCode === projectCode);
   const projTransactions = transactions.filter(
@@ -548,7 +614,7 @@ export function InventoryAndQualityModules({
               <div className="flex gap-1 bg-slate-950 p-1 rounded-lg text-xs border border-slate-800">
                 {perms.canSubmitConsumption && (
                   <button
-                    onClick={() => setInvModalMode("CONSUMPTION")}
+                    onClick={() => handleSwitchInvMode("CONSUMPTION")}
                     className={`px-2.5 py-1 rounded font-semibold transition-all ${
                       effectiveInvMode === "CONSUMPTION"
                         ? "bg-amber-500 text-slate-950 font-bold"
@@ -560,7 +626,7 @@ export function InventoryAndQualityModules({
                 )}
                 {perms.canConfirmGoodsReceipt && (
                   <button
-                    onClick={() => setInvModalMode("RECEIPT")}
+                    onClick={() => handleSwitchInvMode("RECEIPT")}
                     className={`px-2.5 py-1 rounded font-semibold transition-all ${
                       effectiveInvMode === "RECEIPT"
                         ? "bg-amber-500 text-slate-950 font-bold"
@@ -572,7 +638,7 @@ export function InventoryAndQualityModules({
                 )}
                 {perms.canTransferMaterialSurplus && (
                   <button
-                    onClick={() => setInvModalMode("TRANSFER")}
+                    onClick={() => handleSwitchInvMode("TRANSFER")}
                     className={`px-2.5 py-1 rounded font-semibold transition-all ${
                       effectiveInvMode === "TRANSFER"
                         ? "bg-amber-500 text-slate-950 font-bold"
@@ -586,7 +652,11 @@ export function InventoryAndQualityModules({
             </div>
 
             {feedbackMsg && (
-              <div className="p-3 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-xs font-semibold text-emerald-300">
+              <div className={`p-3 rounded-lg border text-xs font-semibold ${
+                feedbackMsg.startsWith("⚠")
+                  ? "bg-rose-500/20 border-rose-500/40 text-rose-300"
+                  : "bg-emerald-500/20 border-emerald-500/40 text-emerald-300"
+              }`}>
                 {feedbackMsg}
               </div>
             )}
@@ -601,6 +671,7 @@ export function InventoryAndQualityModules({
                   onChange={(e) => setSelectedMatCode(e.target.value)}
                   className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
                 >
+                  <option value="">-- Select Material --</option>
                   {materials.map((m) => (
                     <option key={m.materialCode} value={m.materialCode}>
                       {m.materialCode} – {m.name} ({m.unit})
@@ -616,9 +687,10 @@ export function InventoryAndQualityModules({
                 <input
                   type="number"
                   min={1}
+                  placeholder="Enter quantity..."
                   value={qtyInput}
-                  onChange={(e) => setQtyInput(Number(e.target.value))}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  onChange={(e) => setQtyInput(e.target.value)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none placeholder-slate-600"
                 />
               </div>
 
@@ -629,9 +701,10 @@ export function InventoryAndQualityModules({
                   </label>
                   <input
                     type="text"
+                    placeholder="Enter site work activity / zone..."
                     value={activityInput}
                     onChange={(e) => setActivityInput(e.target.value)}
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none placeholder-slate-600"
                   />
                 </div>
               )}
@@ -647,6 +720,7 @@ export function InventoryAndQualityModules({
                       onChange={(e) => setReceiptVendorCode(e.target.value)}
                       className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
                     >
+                      <option value="">-- Select Delivering Vendor --</option>
                       {vendors.map((v) => (
                         <option key={v.vendorCode} value={v.vendorCode}>
                           {v.vendorCode} – {v.name}
@@ -661,9 +735,10 @@ export function InventoryAndQualityModules({
                     <input
                       type="number"
                       min={0}
+                      placeholder="0"
                       value={rejectedInput}
-                      onChange={(e) => setRejectedInput(Number(e.target.value))}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                      onChange={(e) => setRejectedInput(e.target.value)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none placeholder-slate-600"
                     />
                   </div>
                   <div className="sm:col-span-2">
@@ -672,9 +747,10 @@ export function InventoryAndQualityModules({
                     </label>
                     <input
                       type="text"
+                      placeholder="Enter Delivery Order (DO) reference..."
                       value={deliveryRefInput}
                       onChange={(e) => setDeliveryRefInput(e.target.value)}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none placeholder-slate-600"
                     />
                   </div>
                 </>
@@ -690,6 +766,7 @@ export function InventoryAndQualityModules({
                     onChange={(e) => setDestProjCode(e.target.value)}
                     className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
                   >
+                    <option value="">-- Select Destination Project --</option>
                     {projects
                       .filter((p) => p.projectCode !== projectCode)
                       .map((p) => (
@@ -707,9 +784,10 @@ export function InventoryAndQualityModules({
                 </label>
                 <input
                   type="text"
+                  placeholder="Enter remarks or movement notes..."
                   value={remarksInput}
                   onChange={(e) => setRemarksInput(e.target.value)}
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none placeholder-slate-600"
                 />
               </div>
             </div>
@@ -720,18 +798,32 @@ export function InventoryAndQualityModules({
               </span>
               <button
                 onClick={() => {
+                  const numQty = Number(qtyInput);
+                  if (!selectedMatCode) {
+                    setFeedbackMsg("⚠ Please select a material to record movement.");
+                    return;
+                  }
+                  if (!qtyInput || isNaN(numQty) || numQty <= 0) {
+                    setFeedbackMsg("⚠ Please enter a valid quantity greater than 0.");
+                    return;
+                  }
+
                   if (effectiveInvMode === "CONSUMPTION") {
                     onRecordConsumption({
                       materialCode: selectedMatCode,
-                      quantity: qtyInput,
-                      workActivity: activityInput,
-                      remarks: remarksInput,
+                      quantity: numQty,
+                      workActivity: activityInput || "Site General Installation Works",
+                      remarks: remarksInput || "Logged via Site Console",
                     });
                     setFeedbackMsg(
                       perms.canVerifyConsumption
-                        ? `✓ Recorded & verified ${qtyInput} consumption of ${selectedMatCode}.`
-                        : `✓ Submitted ${qtyInput} consumption of ${selectedMatCode} (Pending Site Manager/PM verification).`
+                        ? `✓ Recorded & verified ${numQty} consumption of ${selectedMatCode}.`
+                        : `✓ Submitted ${numQty} consumption of ${selectedMatCode} (Pending Site Manager/PM verification).`
                     );
+                    setSelectedMatCode("");
+                    setQtyInput("");
+                    setActivityInput("");
+                    setRemarksInput("");
                   } else if (effectiveInvMode === "RECEIPT") {
                     if (!perms.canConfirmGoodsReceipt) {
                       setFeedbackMsg(
@@ -739,17 +831,28 @@ export function InventoryAndQualityModules({
                       );
                       return;
                     }
+                    if (!receiptVendorCode) {
+                      setFeedbackMsg("⚠ Please select the delivering vendor.");
+                      return;
+                    }
+                    const numRejected = Number(rejectedInput) || 0;
                     onRecordGoodsReceipt({
                       materialCode: selectedMatCode,
                       vendorCode: receiptVendorCode,
-                      deliveryRef: deliveryRefInput,
-                      acceptedQty: qtyInput,
-                      rejectedQty: rejectedInput,
-                      remarks: remarksInput,
+                      deliveryRef: deliveryRefInput || `DO-${Date.now().toString().slice(-4)}`,
+                      acceptedQty: numQty,
+                      rejectedQty: numRejected,
+                      remarks: remarksInput || "Goods receipt accepted on site",
                     });
                     setFeedbackMsg(
-                      `✓ Goods Receipt ${deliveryRefInput} confirmed: +${qtyInput} added to stock.`
+                      `✓ Goods Receipt confirmed: +${numQty} of ${selectedMatCode} added to stock.`
                     );
+                    setSelectedMatCode("");
+                    setQtyInput("");
+                    setRejectedInput("");
+                    setReceiptVendorCode("");
+                    setDeliveryRefInput("");
+                    setRemarksInput("");
                   } else {
                     if (!perms.canTransferMaterialSurplus) {
                       setFeedbackMsg(
@@ -757,15 +860,23 @@ export function InventoryAndQualityModules({
                       );
                       return;
                     }
+                    if (!destProjCode) {
+                      setFeedbackMsg("⚠ Please select the destination project.");
+                      return;
+                    }
                     onTransferMaterial({
                       destProjectCode: destProjCode,
                       materialCode: selectedMatCode,
-                      quantity: qtyInput,
-                      remarks: remarksInput,
+                      quantity: numQty,
+                      remarks: remarksInput || "Inter-project material transfer",
                     });
                     setFeedbackMsg(
-                      `✓ Transferred ${qtyInput} of ${selectedMatCode} to ${destProjCode}.`
+                      `✓ Transferred ${numQty} of ${selectedMatCode} to ${destProjCode}.`
                     );
+                    setSelectedMatCode("");
+                    setQtyInput("");
+                    setDestProjCode("");
+                    setRemarksInput("");
                   }
                 }}
                 className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs shadow-md"
@@ -823,41 +934,207 @@ export function InventoryAndQualityModules({
   }
 
   // =========================================================================
-  // M05: DEFECT LOG & VENDOR SCORE
+  // M05: MATERIAL & VENDOR PERFORMANCE
   // =========================================================================
+  // Real-Time Defect & Quality Intelligence Analytics (Reflects live data real-time)
+  const totalDefectsCount = projDefects.length;
+  const validatedDefectsCount = projDefects.filter((d) => d.validationStatus === "VALIDATED").length;
+  const pendingDefectsCount = projDefects.filter((d) => d.validationStatus === "PENDING" || !d.validationStatus).length;
+  const deniedDefectsCount = projDefects.filter((d) => d.validationStatus === "DENIED").length;
+  const vendorDefectsCount = projDefects.filter((d) => d.defectType === "VENDOR_DEFECT" || !d.defectType).length;
+  const deliveryDefectsCount = projDefects.filter((d) => d.defectType === "DELIVERY_DEFECT").length;
+  const criticalDefectsCount = projDefects.filter((d) => d.severity === "CRITICAL").length;
+  const highDefectsCount = projDefects.filter((d) => d.severity === "HIGH").length;
+  const mediumLowDefectsCount = projDefects.filter((d) => d.severity === "MEDIUM" || d.severity === "LOW").length;
+  const validationRatePct = totalDefectsCount > 0 ? Math.round((validatedDefectsCount / totalDefectsCount) * 100) : 0;
+
   return (
     <div className="space-y-6">
       {/* Top Banner */}
       <div className="bg-slate-900 border border-slate-800 text-white rounded-xl p-5 shadow-lg flex flex-wrap items-center justify-between gap-4">
         <div>
           <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
-            MODULE 05 • SITE DEFECT LOG & VENDOR SCORE
+            MODULE 05 • MATERIAL & VENDOR PERFORMANCE
           </span>
           <h2 className="text-xl font-extrabold text-white mt-1">
-            Site Defect Logging & Live Vendor Performance Scorecard
+            Material & Vendor Performance
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Log site delivery defects with photo attachments. Status updates require confirmation and are recorded in the audit trail.
+            Quality defect verification, delivery defect tracking, and manager-validated vendor scorecard impact.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-slate-950 border border-slate-700 text-rose-400">
-            Open Defects: {projDefects.filter((d) => d.status === "OPEN" || d.status === "IN_PROGRESS").length}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-slate-950 border border-slate-700 text-white">
+            Total Defects: <strong className="text-amber-400">{totalDefectsCount}</strong>
+          </span>
+          <span className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-slate-950 border border-emerald-500/40 text-emerald-400">
+            Validated (In Score): {validatedDefectsCount}
+          </span>
+          <span className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-slate-950 border border-amber-500/40 text-amber-300">
+            Pending Validation: {pendingDefectsCount}
           </span>
         </div>
       </div>
 
-      {/* Top Section: Split View (Defect Form with Photo Attachment on Left, Active Defect Table with Confirmation Save on Right) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* 1. Reflect Vendor Defect Form (With Photo Attachment + 'Submit' button) */}
-        <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
-          <div>
-            <h3 className="font-extrabold text-white text-base">
-              Reflect Vendor / Delivery Defect
+      {/* Real-Time Quality & Defect Intelligence Chart (Reflects live data whenever defects are logged or validated) */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <h3 className="font-extrabold text-white text-sm">
+              Live Defect & Vendor Quality Analytics (Real-Time Reactive Graph)
             </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Reports defect directly to vendor performance scorecard.
-            </p>
+          </div>
+          <div className="flex items-center gap-3 text-xs font-mono">
+            <span className="text-slate-400">
+              Manager Validation Rate: <strong className="text-emerald-400">{validationRatePct}%</strong>
+            </span>
+            <span className="text-slate-400">
+              Excluded/Denied: <strong className="text-rose-400">{deniedDefectsCount}</strong>
+            </span>
+          </div>
+        </div>
+
+        {/* Real-Time Metrics & SVG Breakdown Bars */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-mono">
+          <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+            <div className="text-slate-400 text-[10px] uppercase font-bold">🏢 Vendor Material Defects</div>
+            <div className="text-lg font-bold text-white flex items-baseline justify-between">
+              <span>{vendorDefectsCount}</span>
+              <span className="text-[10px] text-amber-400 font-normal">
+                {totalDefectsCount > 0 ? Math.round((vendorDefectsCount / totalDefectsCount) * 100) : 0}% of total
+              </span>
+            </div>
+            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+              <div
+                className="bg-amber-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${totalDefectsCount > 0 ? (vendorDefectsCount / totalDefectsCount) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+            <div className="text-slate-400 text-[10px] uppercase font-bold">🚚 Delivery / Logistics Defects</div>
+            <div className="text-lg font-bold text-white flex items-baseline justify-between">
+              <span>{deliveryDefectsCount}</span>
+              <span className="text-[10px] text-sky-400 font-normal">
+                {totalDefectsCount > 0 ? Math.round((deliveryDefectsCount / totalDefectsCount) * 100) : 0}% of total
+              </span>
+            </div>
+            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+              <div
+                className="bg-sky-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${totalDefectsCount > 0 ? (deliveryDefectsCount / totalDefectsCount) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+            <div className="text-slate-400 text-[10px] uppercase font-bold">✓ Validated (Impacts Score)</div>
+            <div className="text-lg font-bold text-emerald-400 flex items-baseline justify-between">
+              <span>{validatedDefectsCount}</span>
+              <span className="text-[10px] text-emerald-300 font-normal">{validationRatePct}% valid</span>
+            </div>
+            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+              <div
+                className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${validationRatePct}%` }}
+              />
+            </div>
+          </div>
+
+          <div className="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-1">
+            <div className="text-slate-400 text-[10px] uppercase font-bold">⚠️ Critical / High Severity</div>
+            <div className="text-lg font-bold text-rose-400 flex items-baseline justify-between">
+              <span>{criticalDefectsCount + highDefectsCount}</span>
+              <span className="text-[10px] text-rose-300 font-normal">
+                {totalDefectsCount > 0 ? Math.round(((criticalDefectsCount + highDefectsCount) / totalDefectsCount) * 100) : 0}% severe
+              </span>
+            </div>
+            <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+              <div
+                className="bg-rose-500 h-full rounded-full transition-all duration-500"
+                style={{ width: `${totalDefectsCount > 0 ? ((criticalDefectsCount + highDefectsCount) / totalDefectsCount) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Real-time SVG Defect Proportional Distribution */}
+        <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+          <div className="flex justify-between items-center text-[11px] font-mono text-slate-400">
+            <span>REAL-TIME SEVERITY & VALIDATION SPECTRUM:</span>
+            <div className="flex items-center gap-3">
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-rose-500" /> Critical ({criticalDefectsCount})</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-amber-500" /> High ({highDefectsCount})</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-sky-500" /> Medium/Low ({mediumLowDefectsCount})</span>
+            </div>
+          </div>
+          <div className="w-full bg-slate-900 h-3 rounded-full overflow-hidden flex">
+            {totalDefectsCount > 0 ? (
+              <>
+                <div
+                  className="bg-rose-500 h-full transition-all duration-500"
+                  style={{ width: `${(criticalDefectsCount / totalDefectsCount) * 100}%` }}
+                  title={`Critical: ${criticalDefectsCount}`}
+                />
+                <div
+                  className="bg-amber-500 h-full transition-all duration-500"
+                  style={{ width: `${(highDefectsCount / totalDefectsCount) * 100}%` }}
+                  title={`High: ${highDefectsCount}`}
+                />
+                <div
+                  className="bg-sky-500 h-full transition-all duration-500"
+                  style={{ width: `${(mediumLowDefectsCount / totalDefectsCount) * 100}%` }}
+                  title={`Medium/Low: ${mediumLowDefectsCount}`}
+                />
+              </>
+            ) : (
+              <div className="w-full bg-slate-800 h-full" />
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Top Section: Split View (Separated Defect Forms on Left, Active Defect Table with Confirmation on Right) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Left Column: Form Switcher & Plain Entry Form */}
+        <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
+          {/* Form Switcher Tabs */}
+          <div className="flex items-center justify-between border-b border-slate-800 pb-3 gap-2">
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => handleSwitchDefectForm("VENDOR")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  activeDefectForm === "VENDOR"
+                    ? "bg-rose-600 text-white shadow"
+                    : "bg-slate-950 text-slate-400 hover:text-white border border-slate-800"
+                }`}
+              >
+                <span>🏢 Vendor Defect Form</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSwitchDefectForm("DELIVERY")}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  activeDefectForm === "DELIVERY"
+                    ? "bg-amber-600 text-white shadow"
+                    : "bg-slate-950 text-slate-400 hover:text-white border border-slate-800"
+                }`}
+              >
+                <span>🚚 Delivery Defect Form</span>
+              </button>
+            </div>
+
+            <button
+              type="button"
+              onClick={activeDefectForm === "VENDOR" ? clearVendorForm : clearDeliveryForm}
+              className="text-[10px] font-mono px-2 py-1 rounded bg-slate-950 text-slate-400 hover:text-amber-400 border border-slate-800 transition-colors"
+              title="Reset all fields to plain empty form"
+            >
+              ↺ Clear Form
+            </button>
           </div>
 
           {defectFormSuccess && (
@@ -866,610 +1143,852 @@ export function InventoryAndQualityModules({
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div>
-              <label className="block font-semibold text-slate-300 mb-1">
-                Vendor / Subcontractor
-              </label>
-              <select
-                value={defVendorCode}
-                onChange={(e) => setDefVendorCode(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
-              >
-                {vendors.map((v) => (
-                  <option key={v.vendorCode} value={v.vendorCode}>
-                    {v.vendorCode} – {v.name} ({v.performance.overallScore}%)
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block font-semibold text-slate-300 mb-1">
-                Material Affected
-              </label>
-              <select
-                value={defMatCode}
-                onChange={(e) => setDefMatCode(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
-              >
-                {materials.map((m) => (
-                  <option key={m.materialCode} value={m.materialCode}>
-                    {m.materialCode} – {m.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block font-semibold text-slate-300 mb-1">
-                Defect Category
-              </label>
-              <select
-                value={defCategory}
-                onChange={(e) =>
-                  setDefCategory(e.target.value as SeedDefectRecord["category"])
-                }
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
-              >
-                <option value="Damaged materials">Damaged materials</option>
-                <option value="Incorrect specifications">Incorrect specifications</option>
-                <option value="Wrong product delivered">Wrong product delivered</option>
-                <option value="Incomplete delivery">Incomplete delivery</option>
-                <option value="Poor product quality">Poor product quality</option>
-                <option value="Subcontractor workmanship">Subcontractor workmanship</option>
-              </select>
-            </div>
-            <div>
-              <label className="block font-semibold text-slate-300 mb-1">
-                Severity & Rejected Qty
-              </label>
-              <div className="flex gap-2">
-                <select
-                  value={defSeverity}
-                  onChange={(e) =>
-                    setDefSeverity(e.target.value as SeedDefectRecord["severity"])
-                  }
-                  className="w-1/2 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-white focus:outline-none"
-                >
-                  <option value="CRITICAL">CRITICAL</option>
-                  <option value="HIGH">HIGH</option>
-                  <option value="MEDIUM">MEDIUM</option>
-                  <option value="LOW">LOW</option>
-                </select>
-                <input
-                  type="number"
-                  min={0}
-                  value={defRejectedQty}
-                  onChange={(e) => setDefRejectedQty(Number(e.target.value))}
-                  placeholder="Rejected Qty"
-                  className="w-1/2 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-white focus:outline-none"
-                />
-              </div>
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block font-semibold text-slate-300 mb-1">
-                Delivery Order / Work Package Ref
-              </label>
-              <input
-                type="text"
-                value={defRef}
-                onChange={(e) => setDefRef(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block font-semibold text-slate-300 mb-1">
-                Defect Description & Site Observation
-              </label>
-              <textarea
-                rows={2}
-                value={defDescription}
-                onChange={(e) => setDefDescription(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
-              />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="block font-semibold text-slate-300 mb-1">
-                Required Corrective Action
-              </label>
-              <input
-                type="text"
-                value={defCorrective}
-                onChange={(e) => setDefCorrective(e.target.value)}
-                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
-              />
-            </div>
-
-            {/* Defect Photo Attachment Field (Real File Upload + Presets + Reflects Vendor Badge) */}
-            <div className="sm:col-span-2 space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="block font-semibold text-slate-300">
-                  Defect Photo Attachment (Reflects Vendor)
-                </label>
-                <span className="text-[10px] font-mono text-amber-400">
-                  Reflects: {vendors.find((v) => v.vendorCode === defVendorCode)?.name || defVendorCode}
-                </span>
+          {/* FORM 1: REFLECT VENDOR DEFECT FORM (Vendor Material Quality, Mill Specs, Rejected Batches) */}
+          {activeDefectForm === "VENDOR" && (
+            <div className="space-y-3.5 text-xs animate-fadeIn">
+              <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-300 text-[11px] leading-relaxed">
+                <strong>Vendor Defect Policy:</strong> Submissions start as <em>Pending Validation</em>. Only validated defects by a Project or Site Manager affect the vendor evaluation score.
               </div>
 
-              {/* Hidden Real File Input */}
-              <input
-                type="file"
-                ref={defectFileInputRef}
-                accept="image/*"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    const reader = new FileReader();
-                    reader.onload = () => {
-                      setDefPhotoUrl(reader.result as string);
-                    };
-                    reader.readAsDataURL(file);
-                  }
-                }}
-                className="hidden"
-              />
-
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => defectFileInputRef.current?.click()}
-                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow transition-all"
-                >
-                  <span>📷</span>
-                  <span>Upload Image File</span>
-                </button>
-
-                <div className="flex-1 min-w-[200px]">
-                  <input
-                    type="text"
-                    value={defPhotoUrl}
-                    onChange={(e) => setDefPhotoUrl(e.target.value)}
-                    placeholder="Or paste site photo URL..."
-                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-white focus:outline-none text-xs"
-                  />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Vendor / Subcontractor <span className="text-rose-400">*</span>
+                  </label>
+                  <select
+                    value={defVendorCode}
+                    onChange={(e) => setDefVendorCode(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  >
+                    <option value="">-- Select Vendor --</option>
+                    {vendors.map((v) => (
+                      <option key={v.vendorCode} value={v.vendorCode}>
+                        {v.vendorCode} – {v.name} ({v.performance.overallScore}%)
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              </div>
 
-              {/* Preset Site Defect Image Quick Select */}
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono text-slate-400">Sample Defect Photos:</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    {
-                      label: "🔩 Rebar Corrosion (Apex)",
-                      url: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80",
-                    },
-                    {
-                      label: "🧱 Cracked Panel (Sunway)",
-                      url: "https://images.unsplash.com/photo-1590381105924-c72589b9ef3f?auto=format&fit=crop&w=600&q=80",
-                    },
-                    {
-                      label: "📦 Torn Bags (Lafarge)",
-                      url: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=600&q=80",
-                    },
-                  ].map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => setDefPhotoUrl(preset.url)}
-                      className="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-950 hover:bg-slate-800 text-slate-300 border border-slate-800 hover:border-slate-700"
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Material Affected <span className="text-rose-400">*</span>
+                  </label>
+                  <select
+                    value={defMatCode}
+                    onChange={(e) => setDefMatCode(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  >
+                    <option value="">-- Select Material --</option>
+                    {materials.map((m) => (
+                      <option key={m.materialCode} value={m.materialCode}>
+                        {m.materialCode} – {m.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Defect Quality Category <span className="text-rose-400">*</span>
+                  </label>
+                  <select
+                    value={defCategory}
+                    onChange={(e) => setDefCategory(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  >
+                    <option value="">-- Select Category --</option>
+                    <option value="Poor product quality">Poor product quality</option>
+                    <option value="Incorrect specifications">Incorrect specifications</option>
+                    <option value="Damaged materials">Damaged materials</option>
+                    <option value="Subcontractor workmanship">Subcontractor workmanship</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Severity & Rejected Qty
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={defSeverity}
+                      onChange={(e) =>
+                        setDefSeverity(e.target.value as SeedDefectRecord["severity"])
+                      }
+                      className="w-1/2 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-white focus:outline-none"
                     >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Live Preview Box with Vendor Reflection Badge */}
-              {defPhotoUrl && (
-                <div className="relative rounded-lg border border-slate-700 bg-slate-950 p-2 flex items-center gap-3">
-                  <div className="h-16 w-20 rounded-md overflow-hidden bg-slate-900 border border-slate-800 flex-shrink-0">
-                    <img
-                      src={defPhotoUrl}
-                      alt="Defect Attachment Preview"
-                      className="h-full w-full object-cover"
+                      <option value="CRITICAL">CRITICAL</option>
+                      <option value="HIGH">HIGH</option>
+                      <option value="MEDIUM">MEDIUM</option>
+                      <option value="LOW">LOW</option>
+                    </select>
+                    <input
+                      type="number"
+                      min={0}
+                      value={defRejectedQty}
+                      onChange={(e) => setDefRejectedQty(e.target.value)}
+                      placeholder="Rejected Qty"
+                      className="w-1/2 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-white focus:outline-none"
                     />
                   </div>
-                  <div className="flex-1 min-w-0 text-xs space-y-0.5">
-                    <div className="font-bold text-white flex items-center gap-1.5">
-                      <span className="text-rose-400">Defect Image Attached</span>
-                    </div>
-                    <div className="text-[11px] text-amber-300 font-medium truncate">
-                      Reflects Vendor: <strong className="text-white">{vendors.find((v) => v.vendorCode === defVendorCode)?.name || defVendorCode}</strong>
-                    </div>
-                    <div className="text-[10px] text-slate-400">
-                      Material: {defMatCode} • DO: {defRef}
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Batch / Heat Number
+                  </label>
+                  <input
+                    type="text"
+                    value={defBatchNumber}
+                    onChange={(e) => setDefBatchNumber(e.target.value)}
+                    placeholder="e.g. BATCH-2026-X8"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Mill Test Certificate Ref
+                  </label>
+                  <input
+                    type="text"
+                    value={defMillCert}
+                    onChange={(e) => setDefMillCert(e.target.value)}
+                    placeholder="e.g. MTC-APEX-9921"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Delivery Order (DO) / Call-Off Ref
+                  </label>
+                  <input
+                    type="text"
+                    value={defRef}
+                    onChange={(e) => setDefRef(e.target.value)}
+                    placeholder="e.g. DO-APEX-7802"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Defect Description & Mill Observation <span className="text-rose-400">*</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={defDescription}
+                    onChange={(e) => setDefDescription(e.target.value)}
+                    placeholder="Describe specific quality or dimensional failure observed on site..."
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Required Corrective Action
+                  </label>
+                  <input
+                    type="text"
+                    value={defCorrective}
+                    onChange={(e) => setDefCorrective(e.target.value)}
+                    placeholder="e.g. Quarantine in Reject Bay, issue Non-Conformance Report (NCR)"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  />
+                </div>
+
+                {/* Defect Photo Attachment Field (Real File Upload + Empty Plain State) */}
+                <div className="sm:col-span-2 space-y-2">
+                  <label className="block font-semibold text-slate-300">
+                    Defect Evidence Photo (Starts Plain & Empty)
+                  </label>
+
+                  {/* Hidden Real File Input */}
+                  <input
+                    type="file"
+                    ref={defectFileInputRef}
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          setDefPhotoUrl(reader.result as string);
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="hidden"
+                  />
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => defectFileInputRef.current?.click()}
+                      className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow transition-all"
+                    >
+                      <span>📷</span>
+                      <span>Upload Defect Photo</span>
+                    </button>
+
+                    <div className="flex-1 min-w-[200px]">
+                      <input
+                        type="text"
+                        value={defPhotoUrl}
+                        onChange={(e) => setDefPhotoUrl(e.target.value)}
+                        placeholder="Or paste site photo URL (optional)..."
+                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-white focus:outline-none text-xs"
+                      />
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setDefPhotoUrl("")}
-                    className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-900"
-                    title="Remove Photo"
-                  >
-                    ✕
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Strictly labeled 'Submit' */}
-          <button
-            onClick={() => {
-              onReportDefect({
-                materialCode: defMatCode,
-                vendorCode: defVendorCode,
-                deliveryRef: defRef,
-                category: defCategory,
-                severity: defSeverity,
-                rejectedQty: defRejectedQty,
-                description: defDescription,
-                correctiveActionText: defCorrective,
-                photoUrl: defPhotoUrl || undefined,
-              });
-              setDefectFormSuccess(`✓ Defect submitted successfully & vendor evaluation score updated.`);
-              setTimeout(() => setDefectFormSuccess(""), 4000);
-            }}
-            className="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-xs shadow-md transition-all"
-          >
-            Submit
-          </button>
+                  {/* Live Preview Box */}
+                  {defPhotoUrl && (
+                    <div className="relative rounded-lg border border-slate-700 bg-slate-950 p-2 flex items-center gap-3">
+                      <div className="h-14 w-16 rounded-md overflow-hidden bg-slate-900 border border-slate-800 flex-shrink-0">
+                        <img
+                          src={defPhotoUrl}
+                          alt="Vendor Defect Preview"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0 text-xs space-y-0.5">
+                        <div className="font-bold text-white flex items-center gap-1.5">
+                          <span className="text-rose-400">Photo Attached</span>
+                        </div>
+                        <div className="text-[11px] text-amber-300 font-medium truncate">
+                          Vendor: <strong className="text-white">{vendors.find((v) => v.vendorCode === defVendorCode)?.name || defVendorCode || "Unassigned"}</strong>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDefPhotoUrl("")}
+                        className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-900"
+                        title="Remove Photo"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!defVendorCode || !defMatCode || !defDescription) {
+                    alert("Please fill in Vendor, Material, and Defect Description.");
+                    return;
+                  }
+                  onReportDefect({
+                    materialCode: defMatCode,
+                    vendorCode: defVendorCode,
+                    deliveryRef: defRef || "DO-PENDING",
+                    category: (defCategory as SeedDefectRecord["category"]) || "Poor product quality",
+                    severity: defSeverity,
+                    rejectedQty: Number(defRejectedQty) || 0,
+                    description: defDescription,
+                    correctiveActionText: defCorrective || "Quarantine and issue Vendor Non-Conformance Report",
+                    photoUrl: defPhotoUrl || undefined,
+                    defectType: "VENDOR_DEFECT",
+                    batchNumber: defBatchNumber || undefined,
+                    millCertRef: defMillCert || undefined,
+                  });
+                  clearVendorForm();
+                  setDefectFormSuccess("✓ Vendor defect reported with status PENDING. Vendor score will only be affected after Manager Validation.");
+                  setTimeout(() => setDefectFormSuccess(""), 4500);
+                }}
+                className="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg text-xs shadow-md transition-all flex items-center justify-center gap-2"
+              >
+                <span>🏢</span>
+                <span>Submit Vendor Defect (Pending Manager Validation)</span>
+              </button>
+            </div>
+          )}
+
+          {/* FORM 2: REFLECT DELIVERY DEFECT FORM (Site Logistics, DO, Transporter, Lorry Plate, Offloading Bay) */}
+          {activeDefectForm === "DELIVERY" && (
+            <div className="space-y-3.5 text-xs animate-fadeIn">
+              <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 text-[11px] leading-relaxed">
+                <strong>Site Delivery & Logistics Defect:</strong> Tracks transit damage, short shipments, carrier haulage details, and unloading bay congestion. Does not impact supplier mill scorecard unless validated.
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Delivery Order (DO) Ref <span className="text-amber-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={delRef}
+                    onChange={(e) => setDelRef(e.target.value)}
+                    placeholder="e.g. DO-TRN-4491"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Transporter / Haulier Company <span className="text-amber-400">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={delTransporter}
+                    onChange={(e) => setDelTransporter(e.target.value)}
+                    placeholder="e.g. Swift Haulage / City Logistics"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Lorry / Vehicle Plate No
+                  </label>
+                  <input
+                    type="text"
+                    value={delLorryPlate}
+                    onChange={(e) => setDelLorryPlate(e.target.value)}
+                    placeholder="e.g. WXY 8812"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Unloading Bay / Site Gate
+                  </label>
+                  <input
+                    type="text"
+                    value={delBayGate}
+                    onChange={(e) => setDelBayGate(e.target.value)}
+                    placeholder="e.g. Bay 2 (Zone B Rebar Yard)"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Logistics Defect Category <span className="text-amber-400">*</span>
+                  </label>
+                  <select
+                    value={delCategory}
+                    onChange={(e) => setDelCategory(e.target.value)}
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  >
+                    <option value="">-- Select Category --</option>
+                    <option value="Packaging damage">Packaging damage / Broken Straps</option>
+                    <option value="Incomplete delivery">Incomplete delivery / Short shipment</option>
+                    <option value="Damaged materials">Transit crushed packaging / Weather exposure</option>
+                    <option value="Wrong product delivered">Wrong product delivered to bay</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Severity & Damaged Packages
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={delSeverity}
+                      onChange={(e) =>
+                        setDelSeverity(e.target.value as SeedDefectRecord["severity"])
+                      }
+                      className="w-1/2 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-white focus:outline-none"
+                    >
+                      <option value="CRITICAL">CRITICAL</option>
+                      <option value="HIGH">HIGH</option>
+                      <option value="MEDIUM">MEDIUM</option>
+                      <option value="LOW">LOW</option>
+                    </select>
+                    <input
+                      type="number"
+                      min={0}
+                      value={delDamagedPkgs}
+                      onChange={(e) => setDelDamagedPkgs(e.target.value)}
+                      placeholder="Damaged Pkgs"
+                      className="w-1/2 rounded-lg border border-slate-700 bg-slate-950 px-2 py-2 text-white focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Transporter Driver Remarks / Site Gate Note <span className="text-amber-400">*</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={delDriverRemarks}
+                    onChange={(e) => setDelDriverRemarks(e.target.value)}
+                    placeholder="Driver statement, offloading incident, or gate pass discrepancy..."
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block font-semibold text-slate-300 mb-1">
+                    Site Logistics Action Taken
+                  </label>
+                  <input
+                    type="text"
+                    value={delAction}
+                    onChange={(e) => setDelAction(e.target.value)}
+                    placeholder="e.g. Endorsed short shipment on Delivery Order, notified freight coordinator"
+                    className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                  />
+                </div>
+
+                {/* Delivery Photo Attachment Field */}
+                <div className="sm:col-span-2 space-y-2">
+                  <label className="block font-semibold text-slate-300">
+                    Delivery / Lorry Offloading Photo (Starts Plain & Empty)
+                  </label>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => defectFileInputRef.current?.click()}
+                      className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 shadow transition-all"
+                    >
+                      <span>📷</span>
+                      <span>Upload Delivery Photo</span>
+                    </button>
+
+                    <div className="flex-1 min-w-[200px]">
+                      <input
+                        type="text"
+                        value={delPhotoUrl}
+                        onChange={(e) => setDelPhotoUrl(e.target.value)}
+                        placeholder="Or paste transit photo URL (optional)..."
+                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-white focus:outline-none text-xs"
+                      />
+                    </div>
+                  </div>
+
+                  {delPhotoUrl && (
+                    <div className="relative rounded-lg border border-slate-700 bg-slate-950 p-2 flex items-center gap-3">
+                      <div className="h-14 w-16 rounded-md overflow-hidden bg-slate-900 border border-slate-800 flex-shrink-0">
+                        <img
+                          src={delPhotoUrl}
+                          alt="Delivery Defect Preview"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0 text-xs space-y-0.5">
+                        <div className="font-bold text-white flex items-center gap-1.5">
+                          <span className="text-amber-400">Delivery Photo Attached</span>
+                        </div>
+                        <div className="text-[11px] text-slate-300 font-medium truncate">
+                          Carrier: {delTransporter || "Unassigned"} • Lorry: {delLorryPlate || "N/A"}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setDelPhotoUrl("")}
+                        className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-900"
+                        title="Remove Photo"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (!delRef || !delTransporter || !delDriverRemarks) {
+                    alert("Please fill in Delivery Order Ref, Transporter, and Driver Remarks.");
+                    return;
+                  }
+                  onReportDefect({
+                    materialCode: "LOGISTICS-TRANSIT",
+                    vendorCode: "DELIVERY-HAULIER",
+                    deliveryRef: delRef,
+                    category: (delCategory as SeedDefectRecord["category"]) || "Packaging damage",
+                    severity: delSeverity,
+                    rejectedQty: Number(delDamagedPkgs) || 0,
+                    description: `Transporter: ${delTransporter} | Lorry: ${delLorryPlate || "N/A"} | Bay: ${delBayGate || "N/A"} — ${delDriverRemarks}`,
+                    correctiveActionText: delAction || "Notify site logistics and note claim on carrier delivery ticket",
+                    photoUrl: delPhotoUrl || undefined,
+                    defectType: "DELIVERY_DEFECT",
+                    transporterName: delTransporter,
+                    lorryPlate: delLorryPlate,
+                    bayGate: delBayGate,
+                    damagedPkgCount: Number(delDamagedPkgs) || 0,
+                    driverRemarks: delDriverRemarks,
+                  });
+                  clearDeliveryForm();
+                  setDefectFormSuccess("✓ Delivery defect logged successfully for site logistics and gate records.");
+                  setTimeout(() => setDefectFormSuccess(""), 4500);
+                }}
+                className="w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs shadow-md transition-all flex items-center justify-center gap-2"
+              >
+                <span>🚚</span>
+                <span>Submit Delivery Defect (Site Logistics Record)</span>
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* 2. Site Defect Log List with Status Change + Confirmation Save Button */}
+        {/* Right Column: Site Defect Log List with Manager Validation Buttons */}
         <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-extrabold text-white text-base">
-              Site Defect Log ({projDefects.length})
-            </h3>
+            <div>
+              <h3 className="font-extrabold text-white text-base">
+                Defect Verification & Audit Log ({projDefects.length})
+              </h3>
+              <p className="text-[11px] text-slate-400">
+                Only validated vendor defects impact vendor scores. Managers can validate or deny records below.
+              </p>
+            </div>
             <span className="text-xs text-slate-400 font-mono">
-              Inspections: {inspections.filter((ins) => ins.projectCode === projectCode).length}
+              Project: {projectCode}
             </span>
           </div>
 
-          <div className="space-y-3 max-h-[580px] overflow-y-auto pr-1">
-            {projDefects.map((d) => {
-              const ven = vendors.find((v) => v.vendorCode === d.vendorCode);
-              const currentPendingStatus = pendingStatuses[d.defectCode] ?? d.status;
-              const hasStatusChange = currentPendingStatus !== d.status;
+          <div className="space-y-3 max-h-[640px] overflow-y-auto pr-1">
+            {projDefects.length === 0 ? (
+              <div className="p-8 text-center text-slate-500 bg-slate-950 rounded-xl border border-slate-800 text-xs">
+                No defects logged for this project yet. Use the form on the left to submit a Vendor or Delivery defect.
+              </div>
+            ) : (
+              projDefects.map((d) => {
+                const ven = vendors.find((v) => v.vendorCode === d.vendorCode);
+                const currentPendingStatus = pendingStatuses[d.defectCode] ?? d.status;
+                const hasStatusChange = currentPendingStatus !== d.status;
+                const isValidated = d.validationStatus === "VALIDATED";
+                const isDenied = d.validationStatus === "DENIED";
+                const isPendingValidation = !d.validationStatus || d.validationStatus === "PENDING";
+                const isManager = perms.canManageInventory || currentUser.role === "PROJECT_MANAGER" || currentUser.role === "SITE_MANAGER";
 
-              return (
-                <div
-                  key={d.id}
-                  className="p-4 rounded-xl border border-slate-800 bg-slate-950/70 space-y-2.5 text-xs"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-amber-400">
-                        {d.defectCode}
-                      </span>
-                      <span
-                        className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                          d.severity === "CRITICAL"
-                            ? "bg-rose-600 text-white"
-                            : d.severity === "HIGH"
-                              ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
-                              : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                        }`}
-                      >
-                        {d.severity}
-                      </span>
-                      <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-medium">
-                        {d.category}
-                      </span>
+                return (
+                  <div
+                    key={d.id}
+                    className={`p-4 rounded-xl border space-y-2.5 text-xs transition-all ${
+                      isValidated
+                        ? "border-emerald-500/30 bg-slate-950/80"
+                        : isDenied
+                          ? "border-rose-500/30 bg-slate-950/60 opacity-80"
+                          : "border-amber-500/40 bg-slate-950/90"
+                    }`}
+                  >
+                    {/* Top Row: Defect Code, Type Badge, Validation Status Badge */}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-bold text-amber-400">
+                          {d.defectCode}
+                        </span>
+
+                        {/* Defect Type Badge */}
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                          d.defectType === "DELIVERY_DEFECT"
+                            ? "bg-sky-500/20 text-sky-300 border border-sky-500/30"
+                            : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                        }`}>
+                          {d.defectType === "DELIVERY_DEFECT" ? "🚚 DELIVERY DEFECT" : "🏢 VENDOR DEFECT"}
+                        </span>
+
+                        <span
+                          className={`px-2 py-0.5 rounded font-bold text-[10px] ${
+                            d.severity === "CRITICAL"
+                              ? "bg-rose-600 text-white"
+                              : d.severity === "HIGH"
+                                ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                : "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                          }`}
+                        >
+                          {d.severity}
+                        </span>
+
+                        <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-medium">
+                          {d.category}
+                        </span>
+                      </div>
+
+                      {/* Validation Status Badge */}
+                      <div>
+                        {isValidated ? (
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-mono font-bold text-[10px] flex items-center gap-1 shadow-sm">
+                            <span>✓ VALIDATED</span>
+                            <span className="text-[9px] text-emerald-400/80">(In Vendor Score)</span>
+                          </span>
+                        ) : isDenied ? (
+                          <span className="px-2.5 py-1 rounded-full bg-rose-500/20 border border-rose-500/40 text-rose-300 font-mono font-bold text-[10px] flex items-center gap-1">
+                            <span>✕ DENIED</span>
+                            <span className="text-[9px] text-rose-400/80">(Excluded)</span>
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono font-bold text-[10px] flex items-center gap-1 animate-pulse">
+                            <span>⏳ PENDING VALIDATION</span>
+                            <span className="text-[9px] text-amber-400/80">(Not in Score)</span>
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Status Dropdown + Confirmation Save Button (Managers & PM only) */}
-                    <div className="flex items-center gap-2">
-                      {perms.canUpdateDefectStatus ? (
-                        <>
-                          <select
-                            value={currentPendingStatus}
-                            onChange={(e) => {
-                              const newSt = e.target.value as SeedDefectRecord["status"];
-                              setPendingStatuses((prev) => ({
-                                ...prev,
-                                [d.defectCode]: newSt,
-                              }));
-                            }}
-                            className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] font-bold text-white focus:outline-none"
-                          >
-                            <option value="OPEN">OPEN</option>
-                            <option value="IN_PROGRESS">IN_PROGRESS</option>
-                            <option value="RESOLVED">RESOLVED</option>
-                            <option value="CLOSED">CLOSED</option>
-                          </select>
+                    {/* Manager Validation Controls (Requirement 4: Only manager can validate/deny) */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 p-2 rounded-lg bg-slate-900 border border-slate-800 text-[11px]">
+                      <div className="text-slate-400">
+                        {isPendingValidation ? (
+                          <span className="text-amber-300">
+                            <strong>Awaiting Review:</strong> Defect will NOT impact vendor score until validated by a Manager.
+                          </span>
+                        ) : isValidated ? (
+                          <span className="text-emerald-400">
+                            <strong>Validated:</strong> Confirmed by {d.validatedBy || "Site Manager"} on {d.validatedDate || d.reportedDate}.
+                          </span>
+                        ) : (
+                          <span className="text-rose-400">
+                            <strong>Denied:</strong> {d.denialReason || "Defect rejected upon reinspection. Vendor score unaffected."}
+                          </span>
+                        )}
+                      </div>
 
-                          {hasStatusChange && (
+                      {/* Manager Action Buttons */}
+                      {isManager ? (
+                        <div className="flex items-center gap-2">
+                          {isPendingValidation && onValidateDefect && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => onValidateDefect(d.defectCode, true)}
+                                className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] shadow transition-all flex items-center gap-1"
+                              >
+                                <span>✓ Validate</span>
+                                <span>(Include in Score)</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDenyModalDefectCode(d.defectCode);
+                                  setDenialReasonText("");
+                                }}
+                                className="px-2.5 py-1 rounded bg-rose-600/80 hover:bg-rose-600 text-white font-bold text-[10px] shadow transition-all flex items-center gap-1"
+                              >
+                                <span>✕ Deny</span>
+                                <span>(Exclude)</span>
+                              </button>
+                            </>
+                          )}
+                          {!isPendingValidation && onValidateDefect && (
                             <button
+                              type="button"
                               onClick={() => {
-                                onUpdateDefectStatus(d.defectCode, currentPendingStatus);
-                                setStatusSaveMsg((prev) => ({
-                                  ...prev,
-                                  [d.defectCode]: `Saved by ${currentUser.name}`,
-                                }));
-                                setTimeout(() => {
-                                  setStatusSaveMsg((prev) => {
-                                    const copy = { ...prev };
-                                    delete copy[d.defectCode];
-                                    return copy;
-                                  });
-                                }, 3000);
+                                if (isValidated) {
+                                  setDenyModalDefectCode(d.defectCode);
+                                  setDenialReasonText("");
+                                } else {
+                                  onValidateDefect(d.defectCode, true);
+                                }
                               }}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-[11px] shadow animate-pulse"
+                              className="text-[10px] text-slate-400 hover:text-amber-400 underline font-mono"
                             >
-                              Save
+                              Re-evaluate Decision
                             </button>
                           )}
-                        </>
+                        </div>
                       ) : (
-                        <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-[10px] font-mono text-slate-400">
-                          Status: <strong className="text-amber-400">{d.status}</strong> (Manager Approval Required)
+                        <span className="text-[10px] font-mono text-slate-500">
+                          🔒 Manager approval required to validate
                         </span>
                       )}
                     </div>
-                  </div>
 
-                  {statusSaveMsg[d.defectCode] && (
-                    <div className="text-[10px] text-emerald-400 font-mono font-bold">
-                      ✓ Status updated & recorded by {currentUser.name}
-                    </div>
-                  )}
-
-                  {/* Vendor Reflection Tag & Defect Summary */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
-                      ⚠️ Reflects Vendor: <strong className="text-white">{ven?.name || d.vendorCode}</strong> ({d.vendorCode})
-                    </span>
-                    <span className="text-slate-400 font-mono text-[11px]">
-                      Material: {d.materialCode} • Ref: {d.deliveryRef} • Rejected: {d.rejectedQty} units
-                    </span>
-                  </div>
-
-                  {/* Photo Thumbnail + Description */}
-                  <div className="flex gap-3 items-start">
-                    {d.photoUrl && (
-                      <div
-                        onClick={() =>
-                          setDefectPhotoModal({
-                            url: d.photoUrl!,
-                            defectCode: d.defectCode,
-                            vendorName: ven?.name || d.vendorCode,
-                            desc: d.description,
-                          })
-                        }
-                        className="h-16 w-20 rounded-lg overflow-hidden bg-slate-900 border border-slate-700 flex-shrink-0 cursor-pointer hover:border-amber-400 hover:opacity-90 transition-all relative group"
-                        title="Click to zoom defect photo"
-                      >
-                        <img
-                          src={d.photoUrl}
-                          alt={d.defectCode}
-                          className="h-full w-full object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
-                          🔍
-                        </div>
+                    {/* Defect Specific Attributes */}
+                    {d.defectType === "DELIVERY_DEFECT" ? (
+                      <div className="p-2 rounded bg-slate-900/60 border border-slate-800 text-[11px] grid grid-cols-2 sm:grid-cols-4 gap-2 text-slate-400 font-mono">
+                        <div>DO: <strong className="text-white">{d.deliveryRef}</strong></div>
+                        <div>Haulier: <strong className="text-white">{d.transporterName || "N/A"}</strong></div>
+                        <div>Lorry Plate: <strong className="text-white">{d.lorryPlate || "N/A"}</strong></div>
+                        <div>Bay/Gate: <strong className="text-white">{d.bayGate || "N/A"}</strong></div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 flex-wrap text-[11px]">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded font-bold bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                          🏢 Vendor: <strong className="text-white">{ven?.name || d.vendorCode}</strong> ({d.vendorCode})
+                        </span>
+                        <span className="text-slate-400 font-mono">
+                          Material: {d.materialCode} • Ref: {d.deliveryRef} • Rejected: {d.rejectedQty} units
+                        </span>
+                        {d.batchNumber && (
+                          <span className="text-amber-300 font-mono text-[10px]">
+                            Batch: {d.batchNumber}
+                          </span>
+                        )}
+                        {d.millCertRef && (
+                          <span className="text-sky-300 font-mono text-[10px]">
+                            MTC: {d.millCertRef}
+                          </span>
+                        )}
                       </div>
                     )}
-                    <p className="text-slate-300 flex-1">{d.description}</p>
-                  </div>
 
-                  <div className="flex justify-between items-center text-[11px] text-slate-500 pt-1 border-t border-slate-800/60">
-                    <span>
-                      Reported by: <strong className="text-slate-300">{d.reportedBy}</strong> ({d.reportedByRole}) on {d.reportedDate}
-                    </span>
-                    <span className="font-mono text-slate-400">Status: <strong className="text-amber-400">{d.status}</strong></span>
-                  </div>
-
-                  {d.correctiveActions.map((ca) => (
-                    <div
-                      key={ca.id}
-                      className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-[11px]"
-                    >
-                      <strong className="text-amber-400">Corrective Action ({ca.status}):</strong>{" "}
-                      <span className="text-slate-300">{ca.actionDescription}</span> —{" "}
-                      <span className="text-slate-500">
-                        Owner: {ca.responsibleParty} (Target: {ca.targetDate})
-                      </span>
+                    {/* Photo Thumbnail + Description */}
+                    <div className="flex gap-3 items-start">
+                      {d.photoUrl && (
+                        <div
+                          onClick={() =>
+                            setDefectPhotoModal({
+                              url: d.photoUrl!,
+                              defectCode: d.defectCode,
+                              vendorName: ven?.name || d.vendorCode || "Site Logistics",
+                              desc: d.description,
+                            })
+                          }
+                          className="h-16 w-20 rounded-lg overflow-hidden bg-slate-900 border border-slate-700 flex-shrink-0 cursor-pointer hover:border-amber-400 hover:opacity-90 transition-all relative group"
+                          title="Click to zoom defect photo"
+                        >
+                          <img
+                            src={d.photoUrl}
+                            alt={d.defectCode}
+                            className="h-full w-full object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white text-xs font-bold transition-opacity">
+                            🔍
+                          </div>
+                        </div>
+                      )}
+                      <p className="text-slate-300 flex-1 leading-relaxed">{d.description}</p>
                     </div>
-                  ))}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
 
-      {/* Bottom Section: Live Vendor Performance Scorecard (Only for PM & Procurement Roles) */}
-      {perms.canViewVendorPerformance && (
-      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-              <h3 className="font-extrabold text-white text-base">
-                Live Vendor Performance Scorecard
-              </h3>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                Top 3 Vendors Display
-              </span>
-            </div>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Live score formula: 40% On-Time Delivery + 40% Quality Acceptance + 20% Issue Resolution. Directly affected by defect logs above.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {onNavigateTab && perms.canViewProcurementAndYard && (
-              <button
-                onClick={() => onNavigateTab("M01_VENDOR")}
-                className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow flex items-center gap-1.5 transition-all"
-              >
-                <span>🔍 View More in Vendor Finder</span>
-                <span>→</span>
-              </button>
+                    {/* Status & Operational Lifecycle dropdown */}
+                    <div className="flex justify-between items-center text-[11px] text-slate-500 pt-1 border-t border-slate-800/60">
+                      <span>
+                        Reported by: <strong className="text-slate-300">{d.reportedBy}</strong> ({d.reportedByRole}) on {d.reportedDate}
+                      </span>
+
+                      <div className="flex items-center gap-2">
+                        {perms.canUpdateDefectStatus ? (
+                          <>
+                            <select
+                              value={currentPendingStatus}
+                              onChange={(e) => {
+                                const newSt = e.target.value as SeedDefectRecord["status"];
+                                setPendingStatuses((prev) => ({
+                                  ...prev,
+                                  [d.defectCode]: newSt,
+                                }));
+                              }}
+                              className="rounded border border-slate-700 bg-slate-900 px-2 py-0.5 text-[11px] font-bold text-white focus:outline-none"
+                            >
+                              <option value="OPEN">OPEN</option>
+                              <option value="IN_PROGRESS">IN_PROGRESS</option>
+                              <option value="RESOLVED">RESOLVED</option>
+                              <option value="CLOSED">CLOSED</option>
+                            </select>
+
+                            {hasStatusChange && (
+                              <button
+                                onClick={() => {
+                                  onUpdateDefectStatus(d.defectCode, currentPendingStatus);
+                                  setStatusSaveMsg((prev) => ({
+                                    ...prev,
+                                    [d.defectCode]: `Saved by ${currentUser.name}`,
+                                  }));
+                                  setTimeout(() => {
+                                    setStatusSaveMsg((prev) => {
+                                      const copy = { ...prev };
+                                      delete copy[d.defectCode];
+                                      return copy;
+                                    });
+                                  }, 3000);
+                                }}
+                                className="px-2 py-0.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-[10px] shadow"
+                              >
+                                Save Status
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <span className="font-mono text-slate-400">
+                            Lifecycle: <strong className="text-amber-400">{d.status}</strong>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {statusSaveMsg[d.defectCode] && (
+                      <div className="text-[10px] text-emerald-400 font-mono font-bold">
+                        ✓ Status updated & recorded by {currentUser.name}
+                      </div>
+                    )}
+
+                    {d.correctiveActions.map((ca) => (
+                      <div
+                        key={ca.id}
+                        className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-[11px]"
+                      >
+                        <strong className="text-amber-400">Corrective Action ({ca.status}):</strong>{" "}
+                        <span className="text-slate-300">{ca.actionDescription}</span> —{" "}
+                        <span className="text-slate-500">
+                          Owner: {ca.responsibleParty} (Target: {ca.targetDate})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
+      </div>
 
-        {/* Compact Top-3 Vendor Cards Grid (Reduced Section Size) */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {vendors.slice(0, 3).map((v, idx) => {
-            const statusColor =
-              v.performance.evaluationStatus === "PREFERRED"
-                ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                : v.performance.evaluationStatus === "WATCHLIST"
-                  ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
-                  : "bg-rose-500/20 text-rose-300 border-rose-500/40";
-
-            return (
-              <div
-                key={v.vendorCode}
-                className="p-4 rounded-xl border border-slate-800 bg-slate-950/70 hover:border-slate-700 transition-all space-y-3"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="px-1.5 py-0.5 rounded bg-slate-800 font-mono text-[10px] text-slate-400 font-bold">
-                        #{idx + 1}
-                      </span>
-                      <h4 className="font-bold text-white text-sm">{v.name}</h4>
-                    </div>
-                    <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                      {v.vendorCode} • {v.tradeSpecialty}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-mono font-black text-amber-400">
-                      {v.performance.overallScore}%
-                    </div>
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded text-[9px] font-mono font-bold border ${statusColor}`}
-                    >
-                      {v.performance.evaluationStatus}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Score Breakdown Bars */}
-                <div className="grid grid-cols-3 gap-2 text-[10px] font-mono pt-1 border-t border-slate-800/80">
-                  <div className="bg-slate-900 p-2 rounded border border-slate-800">
-                    <div className="text-slate-400">On-Time</div>
-                    <div className="font-bold text-sky-400 text-xs">
-                      {v.performance.onTimeDeliveryRate}%
-                    </div>
-                  </div>
-                  <div className="bg-slate-900 p-2 rounded border border-slate-800">
-                    <div className="text-slate-400">Quality</div>
-                    <div className="font-bold text-emerald-400 text-xs">
-                      {v.performance.qualityAcceptanceRate}%
-                    </div>
-                  </div>
-                  <div className="bg-slate-900 p-2 rounded border border-slate-800">
-                    <div className="text-slate-400">Open Defs</div>
-                    <div className={`font-bold text-xs ${v.performance.openDefectsCount > 0 ? "text-rose-400" : "text-slate-300"}`}>
-                      {v.performance.openDefectsCount}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-[11px] text-slate-400 bg-slate-900/60 p-2 rounded border border-slate-800/60 line-clamp-2">
-                  <span className="font-semibold text-slate-300">AI Summary:</span> {v.performance.aiRiskSummary}
+      {/* Manager Denial Modal */}
+      {denyModalDefectCode && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-rose-500/20 text-rose-300 text-base">✕</span>
+                <div>
+                  <h4 className="font-bold text-white text-sm">Deny Defect & Exclude from Score</h4>
+                  <span className="text-[10px] font-mono text-amber-400">{denyModalDefectCode}</span>
                 </div>
               </div>
-            );
-          })}
-        </div>
-
-        {/* More than 3 vendors note & Expandable toggle */}
-        {vendors.length > 3 && (
-          <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="text-slate-400">
-              Showing top 3 of <strong className="text-white">{vendors.length}</strong> site vendors. More than 3 vendors registered.
-            </div>
-            <div className="flex items-center gap-2">
-              {onNavigateTab && perms.canViewProcurementAndYard && (
-                <button
-                  onClick={() => onNavigateTab("M01_VENDOR")}
-                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow transition-all"
-                >
-                  View All {vendors.length} Vendors in Vendor Finder →
-                </button>
-              )}
               <button
-                onClick={() => setIsVendorScorecardExpanded(!isVendorScorecardExpanded)}
-                className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-amber-400 font-bold text-xs border border-slate-700 transition-all"
+                type="button"
+                onClick={() => setDenyModalDefectCode(null)}
+                className="text-slate-400 hover:text-white font-bold text-sm"
               >
-                {isVendorScorecardExpanded ? "▲ Hide Table" : `▼ View Full Table Inline (${vendors.length - 3} More)`}
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Denying this defect will mark it as <strong className="text-rose-400">DENIED</strong>. The vendor scorecard will <strong className="text-emerald-400">NOT be affected</strong>. Please specify the manager verification reason below:
+            </p>
+
+            <textarea
+              rows={3}
+              value={denialReasonText}
+              onChange={(e) => setDenialReasonText(e.target.value)}
+              placeholder="e.g. Re-inspection passed; third-party lab mill cert confirms tensile specs met. Internal transit handling issue."
+              className="w-full rounded-lg border border-slate-700 bg-slate-950 p-2.5 text-xs text-white focus:outline-none"
+            />
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setDenyModalDefectCode(null)}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onValidateDefect?.(denyModalDefectCode, false, denialReasonText || "Denied by Manager review");
+                  setDenyModalDefectCode(null);
+                  setDenialReasonText("");
+                }}
+                className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow"
+              >
+                Confirm Defect Denial
               </button>
             </div>
           </div>
-        )}
-
-        {/* Expanded Full Table (Only shown if toggled) */}
-        {isVendorScorecardExpanded && (
-          <div className="overflow-x-auto pt-2 border-t border-slate-800">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="bg-slate-950 text-slate-400 border-b border-slate-800 font-mono">
-                  <th className="py-2.5 px-3">Vendor / Trade</th>
-                  <th className="py-2.5 px-3">Score</th>
-                  <th className="py-2.5 px-3">On-Time (40%)</th>
-                  <th className="py-2.5 px-3">Quality (40%)</th>
-                  <th className="py-2.5 px-3">Resolution (20%)</th>
-                  <th className="py-2.5 px-3">Open Defects</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3">AI Risk Summary</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800">
-                {vendors.map((v) => (
-                  <tr key={v.vendorCode} className="hover:bg-slate-800/40">
-                    <td className="py-2.5 px-3">
-                      <div className="font-bold text-white">{v.name}</div>
-                      <div className="text-[11px] text-slate-400 font-mono">{v.vendorCode} • {v.tradeSpecialty}</div>
-                    </td>
-                    <td className="py-2.5 px-3 font-mono font-extrabold text-amber-400 text-sm">
-                      {v.performance.overallScore}%
-                    </td>
-                    <td className="py-2.5 px-3 font-mono">
-                      <div className="font-bold text-white">{v.performance.onTimeDeliveryRate}%</div>
-                      <div className="text-[10px] text-slate-500">{v.performance.onTimeDeliveries}/{v.performance.totalDeliveries}</div>
-                    </td>
-                    <td className="py-2.5 px-3 font-mono">
-                      <div className="font-bold text-white">{v.performance.qualityAcceptanceRate}%</div>
-                      <div className="text-[10px] text-slate-500">{v.performance.rejectedQty} rejected</div>
-                    </td>
-                    <td className="py-2.5 px-3 font-mono text-slate-300">
-                      {v.performance.issueResolutionRate}%
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                        v.performance.openDefectsCount > 0 ? "bg-rose-500/20 text-rose-300" : "bg-emerald-500/20 text-emerald-300"
-                      }`}>
-                        {v.performance.openDefectsCount} open
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3">
-                      <span className={`inline-block px-2 py-0.5 rounded font-bold text-[10px] font-mono ${
-                        v.performance.evaluationStatus === "PREFERRED"
-                          ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-                          : v.performance.evaluationStatus === "WATCHLIST"
-                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                            : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
-                      }`}>
-                        {v.performance.evaluationStatus}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-3 text-[11px] text-slate-400 max-w-xs truncate">
-                      {v.performance.aiRiskSummary}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+        </div>
       )}
 
       {/* Defect Photo Lightbox Modal */}

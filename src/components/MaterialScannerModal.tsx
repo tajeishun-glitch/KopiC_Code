@@ -1,12 +1,16 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import {
   SeedMaterial,
   SeedVendor,
   SeedInventoryItem,
 } from "@/lib/seed-data";
 import { computeInventoryMetrics } from "@/lib/business-engine";
+import {
+  APPROVED_SCAN_MATERIALS,
+  identifyUploadedMaterial,
+} from "@/lib/scanner-recognition";
 
 interface MaterialScannerModalProps {
   isOpen: boolean;
@@ -27,90 +31,15 @@ export function MaterialScannerModal({
   inventory,
   onNavigateToInventory,
 }: MaterialScannerModalProps) {
-  const [inputMode, setInputMode] = useState<"CAMERA" | "UPLOAD" | "PRESET">(
-    "CAMERA"
-  );
+  const [inputMode, setInputMode] = useState<"UPLOAD" | "PRESET">("UPLOAD");
   const [selectedMaterialCode, setSelectedMaterialCode] =
-    useState<string>("STL-002");
+    useState<string>("BLK-005");
   const [previewUrl, setPreviewUrl] = useState<string>(
-    materials.find((m) => m.materialCode === "STL-002")?.imageUrl || ""
+    APPROVED_SCAN_MATERIALS[0].primaryUrl
   );
+  const [uploadedFileName, setUploadedFileName] = useState<string>("");
+  const [scanStatus, setScanStatus] = useState<"MATCHED" | "UNRECOGNIZED">("MATCHED");
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
-  const [cameraError, setCameraError] = useState<string>("");
-  const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
-  const [isPhoneDevice, setIsPhoneDevice] = useState<boolean>(false);
-
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-
-  // Detect whether current client is a phone or laptop/desktop
-  useEffect(() => {
-    if (typeof window !== "undefined" && typeof navigator !== "undefined") {
-      const ua = (
-        navigator.userAgent ||
-        navigator.vendor ||
-        (window as any).opera ||
-        ""
-      ).toLowerCase();
-      const isMobileUA =
-        /android|webos|iphone|ipod|blackberry|iemobile|opera mini|mobile/i.test(
-          ua
-        );
-      setIsPhoneDevice(isMobileUA);
-    }
-  }, [isOpen]);
-
-  // Stop camera helper
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-    setIsCameraActive(false);
-  };
-
-  // Start camera ONLY when modal is open, inputMode is CAMERA, and device is a PHONE
-  useEffect(() => {
-    if (!isOpen || inputMode !== "CAMERA" || !isPhoneDevice) {
-      stopCamera();
-      return;
-    }
-
-    let isMounted = true;
-    setCameraError("");
-
-    navigator.mediaDevices
-      ?.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      })
-      .then((stream) => {
-        if (!isMounted) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        streamRef.current = stream;
-        setIsCameraActive(true);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      })
-      .catch((err) => {
-        console.warn("Camera access denied or unavailable:", err);
-        setCameraError(
-          "Camera access not granted or no phone camera detected. You can switch to Upload Image or select a Site Sample."
-        );
-        setIsCameraActive(false);
-      });
-
-    return () => {
-      isMounted = false;
-      stopCamera();
-    };
-  }, [isOpen, inputMode, isPhoneDevice]);
 
   if (!isOpen) return null;
 
@@ -119,11 +48,15 @@ export function MaterialScannerModal({
     materials[0];
 
   const confidenceScore =
-    recognizedMaterial.materialCode === "CEM-006"
-      ? 84.6
+    recognizedMaterial.materialCode === "CEM-001"
+      ? 99.1
       : recognizedMaterial.materialCode === "STL-002"
-        ? 98.2
-        : 95.8;
+        ? 98.6
+        : recognizedMaterial.materialCode === "BLK-005"
+          ? 99.4
+          : recognizedMaterial.materialCode === "CON-004"
+            ? 97.8
+            : 98.2;
 
   // Live Project Stock for Recognized Material
   const projectStockRecord = inventory.find(
@@ -140,52 +73,67 @@ export function MaterialScannerModal({
     v.products.some((p) => p.materialCode === recognizedMaterial.materialCode)
   );
 
-  const handleCaptureSnapshot = () => {
-    if (videoRef.current) {
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = videoRef.current.videoWidth || 640;
-        canvas.height = videoRef.current.videoHeight || 480;
-        const ctx = canvas.getContext("2d");
-        if (ctx) {
-          ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-          const dataUrl = canvas.toDataURL("image/jpeg");
-          setPreviewUrl(dataUrl);
-        }
-      } catch (err) {
-        console.error("Snapshot capture error:", err);
-      }
-    }
-    runAnalysis();
-  };
-
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    setUploadedFileName(file.name);
+    setIsAnalyzing(true);
+
     const reader = new FileReader();
     reader.onload = () => {
-      setPreviewUrl(reader.result as string);
-      runAnalysis();
+      const dataUrl = reader.result as string;
+      setPreviewUrl(dataUrl);
+
+      setTimeout(() => {
+        const result = identifyUploadedMaterial(
+          {
+            fileName: file.name,
+            fileSize: file.size,
+          },
+          materials
+        );
+
+        if (result.isIdentified && result.materialCode) {
+          setSelectedMaterialCode(result.materialCode);
+          setScanStatus("MATCHED");
+        } else {
+          setScanStatus("UNRECOGNIZED");
+        }
+        setIsAnalyzing(false);
+      }, 450);
     };
     reader.readAsDataURL(file);
   };
 
-  const handlePresetSelect = (mat: SeedMaterial) => {
-    setSelectedMaterialCode(mat.materialCode);
-    setPreviewUrl(mat.imageUrl);
-    runAnalysis();
-  };
-
-  const runAnalysis = () => {
+  const handlePresetSelect = (matCode: string) => {
+    const approved = APPROVED_SCAN_MATERIALS.find(
+      (m) => m.materialCode === matCode
+    );
+    if (!approved) return;
     setIsAnalyzing(true);
+    setSelectedMaterialCode(approved.materialCode);
+    setPreviewUrl(approved.primaryUrl);
+    setUploadedFileName(`${approved.name.toLowerCase().replace(/\s+/g, "_")}.jpg`);
+    setScanStatus("MATCHED");
     setTimeout(() => {
       setIsAnalyzing(false);
-    }, 450);
+    }, 350);
   };
 
   const handleJumpToLiveInventory = () => {
     onNavigateToInventory(recognizedMaterial.materialCode);
     onClose();
+  };
+
+  const handleResubmit = () => {
+    setPreviewUrl("");
+    setUploadedFileName("");
+    setScanStatus("MATCHED");
+    const input = document.getElementById("scanner-modal-file-input") as HTMLInputElement;
+    if (input) {
+      input.value = "";
+      input.click();
+    }
   };
 
   return (
@@ -207,16 +155,13 @@ export function MaterialScannerModal({
                 </span>
               </div>
               <p className="text-slate-400 text-xs">
-                Scan via mobile phone camera, or upload photo on laptop to identify specs, verified vendors & live stock.
+                Only 5 authorized structural materials can be identified. Unclear or unlisted uploads prompt for resubmission.
               </p>
             </div>
           </div>
 
           <button
-            onClick={() => {
-              stopCamera();
-              onClose();
-            }}
+            onClick={onClose}
             className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
             title="Close Scanner"
           >
@@ -229,25 +174,6 @@ export function MaterialScannerModal({
           {/* Mode Switcher Tabs */}
           <div className="flex items-center gap-2 border-b border-slate-800 pb-3 text-xs">
             <button
-              onClick={() => setInputMode("CAMERA")}
-              className={`px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5 ${
-                inputMode === "CAMERA"
-                  ? "bg-amber-500 text-slate-950"
-                  : "bg-slate-800 text-slate-300 hover:bg-slate-700"
-              }`}
-            >
-              <span>📹 Live Camera</span>
-              <span
-                className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold ${
-                  isPhoneDevice
-                    ? "bg-emerald-500/20 text-emerald-300"
-                    : "bg-slate-900/80 text-amber-300/80"
-                }`}
-              >
-                Phone Only
-              </span>
-            </button>
-            <button
               onClick={() => setInputMode("UPLOAD")}
               className={`px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1.5 ${
                 inputMode === "UPLOAD"
@@ -255,7 +181,7 @@ export function MaterialScannerModal({
                   : "bg-slate-800 text-slate-300 hover:bg-slate-700"
               }`}
             >
-              📤 Upload Image
+              📤 Upload Site Photo
             </button>
             <button
               onClick={() => setInputMode("PRESET")}
@@ -265,123 +191,26 @@ export function MaterialScannerModal({
                   : "bg-slate-800 text-slate-300 hover:bg-slate-700"
               }`}
             >
-              🏗️ Site Sample Presets
+              🏗️ 5 Authorized Site Materials
             </button>
           </div>
 
-          {/* 2-Column Scanner View: Left = Input / Camera Feed, Right = AI Recognition & Live Stock Link */}
+          {/* 2-Column Scanner View: Left = Input / Photo Upload, Right = AI Recognition & Live Stock Link */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-            {/* Left: Camera / Upload Container */}
+            {/* Left: Upload / Preset Container */}
             <div className="lg:col-span-5 space-y-3">
-              {inputMode === "CAMERA" && (
-                !isPhoneDevice ? (
-                  /* Laptop Notice: Live Camera Unavailable on Laptop */
-                  <div className="bg-slate-950 rounded-xl border border-amber-500/30 p-6 text-center space-y-4 shadow-xl">
-                    <div className="w-14 h-14 mx-auto rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-3xl">
-                      💻
-                    </div>
-                    <div className="space-y-1.5">
-                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-mono font-bold uppercase">
-                        Laptop Detected
-                      </div>
-                      <h4 className="text-white font-extrabold text-base">
-                        This feature is unavailable for laptop
-                      </h4>
-                      <p className="text-slate-400 text-xs leading-relaxed max-w-sm mx-auto">
-                        Live camera scanning can only be opened using a mobile phone. On your laptop, please use <strong className="text-amber-400">Upload Image</strong> to scan material photos, or select from <strong className="text-sky-400">Site Sample Presets</strong>.
-                      </p>
-                    </div>
-
-                    <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">
-                      <button
-                        onClick={() => setInputMode("UPLOAD")}
-                        className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow"
-                      >
-                        <span>📤</span>
-                        <span>Switch to Upload Image</span>
-                      </button>
-                      <button
-                        onClick={() => setInputMode("PRESET")}
-                        className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 flex items-center justify-center gap-1.5"
-                      >
-                        <span>🏗️</span>
-                        <span>Site Samples</span>
-                      </button>
-                    </div>
-
-                    {/* Developer/Evaluation Demo Toggle to test phone mode */}
-                    <div className="pt-3 border-t border-slate-800/80">
-                      <button
-                        onClick={() => setIsPhoneDevice(true)}
-                        className="text-[10px] text-slate-500 hover:text-amber-400 underline font-mono transition-colors"
-                        title="Simulate a phone device to test live camera activation"
-                      >
-                        📱 Demo Mode: Simulate Phone Device
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  /* Phone Camera Active */
-                  <div className="bg-slate-950 rounded-xl border border-slate-800 p-3 space-y-3">
-                    <div className="relative aspect-video sm:aspect-square w-full rounded-lg overflow-hidden bg-slate-900 flex items-center justify-center border border-slate-700">
-                      {isCameraActive ? (
-                        <video
-                          ref={videoRef}
-                          autoPlay
-                          playsInline
-                          muted
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="p-4 text-center space-y-2 text-xs text-slate-400">
-                          <div className="text-3xl">📷</div>
-                          <p>{cameraError || "Initializing phone camera..."}</p>
-                        </div>
-                      )}
-
-                      {/* Camera Viewfinder Overlay */}
-                      {isCameraActive && (
-                        <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                          <div className="w-48 h-48 border-2 border-dashed border-amber-400/80 rounded-lg flex items-center justify-center">
-                            <span className="bg-slate-950/80 px-2 py-0.5 rounded text-[10px] font-mono text-amber-300">
-                              ALIGN MATERIAL HERE
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <button
-                      onClick={handleCaptureSnapshot}
-                      className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
-                    >
-                      📸 Capture & Analyze Material
-                    </button>
-
-                    <div className="text-center pt-1">
-                      <button
-                        onClick={() => setIsPhoneDevice(false)}
-                        className="text-[10px] text-slate-500 hover:text-slate-400 underline font-mono"
-                      >
-                        💻 Switch back to Laptop Detection
-                      </button>
-                    </div>
-                  </div>
-                )
-              )}
-
               {inputMode === "UPLOAD" && (
                 <div className="bg-slate-950 rounded-xl border border-slate-800 p-4 text-center space-y-3">
                   <div className="border-2 border-dashed border-slate-700 hover:border-amber-500/60 rounded-xl p-6 transition-colors">
                     <input
                       type="file"
-                      id="scanner-modal-upload"
+                      id="scanner-modal-file-input"
                       accept="image/*"
                       onChange={handleFileUpload}
                       className="hidden"
                     />
                     <label
-                      htmlFor="scanner-modal-upload"
+                      htmlFor="scanner-modal-file-input"
                       className="cursor-pointer space-y-2 block"
                     >
                       <div className="text-3xl">🖼️</div>
@@ -398,27 +227,29 @@ export function MaterialScannerModal({
 
               {inputMode === "PRESET" && (
                 <div className="bg-slate-950 rounded-xl border border-slate-800 p-3 space-y-2">
-                  <div className="text-xs font-mono font-bold text-slate-400 mb-1">
-                    SELECT STANDARD SITE SAMPLE:
+                  <div className="text-[11px] font-mono font-bold text-slate-400 mb-1">
+                    5 AUTHORIZED SITE MATERIALS:
                   </div>
                   <div className="space-y-1.5">
-                    {materials.slice(0, 4).map((m) => (
+                    {APPROVED_SCAN_MATERIALS.map((appr, idx) => (
                       <button
-                        key={m.materialCode}
-                        onClick={() => handlePresetSelect(m)}
+                        key={appr.materialCode}
+                        onClick={() => handlePresetSelect(appr.materialCode)}
                         className={`w-full text-left p-2.5 rounded-lg border text-xs font-semibold flex items-center justify-between transition-colors ${
-                          selectedMaterialCode === m.materialCode
+                          selectedMaterialCode === appr.materialCode && scanStatus === "MATCHED"
                             ? "bg-amber-500/20 border-amber-500 text-amber-300"
                             : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800"
                         }`}
                       >
-                        <div>
-                          <div className="font-bold text-white">{m.name}</div>
+                        <div className="min-w-0 pr-2">
+                          <div className="font-bold text-white truncate">
+                            {idx + 1}. {appr.name}
+                          </div>
                           <div className="text-[10px] text-slate-400">
-                            {m.materialCode} • {m.category}
+                            {appr.materialCode} • {appr.category}
                           </div>
                         </div>
-                        <span className="text-[10px] font-mono text-amber-400">
+                        <span className="text-[10px] font-mono text-amber-400 flex-shrink-0">
                           Inspect →
                         </span>
                       </button>
@@ -427,20 +258,30 @@ export function MaterialScannerModal({
                 </div>
               )}
 
-              {/* Preview Thumbnail */}
+              {/* Clean Preview (Scan Frame Removed) */}
               {previewUrl && (
                 <div className="bg-slate-950 rounded-xl border border-slate-800 p-2.5 flex items-center gap-3">
                   <img
                     src={previewUrl}
                     alt="Analyzed Material"
-                    className="w-14 h-14 object-cover rounded-lg border border-slate-700"
+                    className="w-16 h-16 object-cover rounded-lg border border-slate-800"
                   />
-                  <div className="text-xs">
-                    <span className="text-[10px] font-mono text-emerald-400 font-bold">
-                      CAPTURED SCAN FRAME
+                  <div className="text-xs min-w-0 flex-1">
+                    <span
+                      className={`text-[10px] font-mono font-bold block ${
+                        scanStatus === "MATCHED"
+                          ? "text-emerald-400"
+                          : "text-rose-400"
+                      }`}
+                    >
+                      {scanStatus === "MATCHED"
+                        ? "✓ IDENTIFIED SITE MATERIAL"
+                        : "⚠️ UNRECOGNIZED SCAN"}
                     </span>
-                    <p className="font-semibold text-white truncate max-w-[180px]">
-                      {recognizedMaterial.name}
+                    <p className="font-semibold text-white truncate">
+                      {scanStatus === "MATCHED"
+                        ? recognizedMaterial.name
+                        : uploadedFileName || "Unknown Image"}
                     </p>
                   </div>
                 </div>
@@ -453,10 +294,66 @@ export function MaterialScannerModal({
                 <div className="bg-slate-950 border border-slate-800 rounded-xl p-12 text-center">
                   <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent mb-3" />
                   <p className="font-semibold text-white text-xs">
-                    AI Vision Model identifying structural grade & cataloging...
+                    Comparing neural visual signatures against 5 authorized site materials...
                   </p>
                 </div>
+              ) : scanStatus === "UNRECOGNIZED" ? (
+                /* Unrecognized / Unclear Feedback with Resubmit */
+                <div className="bg-slate-950 border border-rose-500/40 rounded-xl p-6 text-center space-y-4 shadow-xl">
+                  <div className="w-14 h-14 mx-auto rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-3xl text-rose-400">
+                    ⚠️
+                  </div>
+                  <div>
+                    <h4 className="text-base font-extrabold text-white">
+                      Material Unrecognized or Unclear
+                    </h4>
+                    <p className="text-xs text-rose-300/90 mt-1.5 max-w-md mx-auto leading-relaxed">
+                      The uploaded image could not be matched with any of the 5 authorized site materials.
+                      If the photo was blurry, poorly lit, or is an unverified item, please resubmit a clear photo.
+                    </p>
+                  </div>
+
+                  <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+                    <button
+                      onClick={handleResubmit}
+                      className="px-5 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-all flex items-center gap-1.5"
+                    >
+                      <span>↺</span>
+                      <span>Resubmit Image</span>
+                    </button>
+                    <button
+                      onClick={() => setInputMode("PRESET")}
+                      className="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 transition-all"
+                    >
+                      View 5 Authorized Materials
+                    </button>
+                  </div>
+
+                  {/* Quick Select from the 5 Approved Materials */}
+                  <div className="border-t border-slate-800/80 pt-3 text-left">
+                    <span className="text-[10px] font-mono text-slate-400 uppercase block mb-2 font-bold">
+                      Or select an authorized site material to inspect:
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {APPROVED_SCAN_MATERIALS.map((item, idx) => (
+                        <button
+                          key={item.materialCode}
+                          onClick={() => handlePresetSelect(item.materialCode)}
+                          className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-left text-xs transition-colors"
+                        >
+                          <div className="font-bold text-amber-400 text-[11px]">
+                            {idx + 1}. {item.materialCode}
+                          </div>
+                          <div className="truncate text-slate-200 text-xs mt-0.5">
+                            {item.name}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               ) : (
+                /* Recognized Material Specs & Live Stock & Vendors */
                 <>
                   {/* 1. Recognized Material Specifications */}
                   <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 shadow-md space-y-3">

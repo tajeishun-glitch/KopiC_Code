@@ -84,22 +84,26 @@ export function EquipmentProgressRiskModules({
       projMilestones[0]?.milestoneCode ||
       "MS-ALPHA-02"
   );
-  const [newCompletionPct, setNewCompletionPct] = useState<number>(68);
-  const [workDoneText, setWorkDoneText] = useState<string>(
-    "Completed Grid C4-C7 rebar spacing rectification and poured 160 m3 C40 slab section."
-  );
-  const [workOutText, setWorkOutText] = useState<string>(
-    "Remaining Zone B transfer beam reinforcement and curing inspection."
-  );
-  const [msRemarks, setMsRemarks] = useState<string>(
-    "Subcontractor BinaTeguh added 12 steel fixers on night shift."
-  );
-  const [msPhotoUrl, setMsPhotoUrl] = useState<string>(
-    "https://images.unsplash.com/photo-1541888946425-d09bb18086f6?auto=format&fit=crop&w=600&q=80"
-  );
+  const [newCompletionPct, setNewCompletionPct] = useState<number>(0);
+  const [workDoneText, setWorkDoneText] = useState<string>("");
+  const [workOutText, setWorkOutText] = useState<string>("");
+  const [msRemarks, setMsRemarks] = useState<string>("");
+  const [msPhotoUrl, setMsPhotoUrl] = useState<string>("");
   const [msSuccessMsg, setMsSuccessMsg] = useState<string>("");
   const progressFileInputRef = useRef<HTMLInputElement>(null);
   const [selectedPhotoModal, setSelectedPhotoModal] = useState<SeedPhoto | null>(null);
+
+  const handleClearMilestoneForm = () => {
+    setNewCompletionPct(0);
+    setWorkDoneText("");
+    setWorkOutText("");
+    setMsRemarks("");
+    setMsPhotoUrl("");
+    setMsSuccessMsg("");
+    if (progressFileInputRef.current) {
+      progressFileInputRef.current.value = "";
+    }
+  };
 
   // Photo gallery toggle (Max 3 visible by default)
   const [isPhotoGalleryExpanded, setIsPhotoGalleryExpanded] = useState<boolean>(false);
@@ -134,6 +138,21 @@ export function EquipmentProgressRiskModules({
 
   const currentProject =
     projects.find((p) => p.projectCode === projectCode) || projects[0];
+
+  // Dynamic live progress calculation from milestone updates
+  const liveActualCompletion =
+    projMilestones.length > 0
+      ? Math.round(
+          projMilestones.reduce((acc, m) => acc + m.actualProgress, 0) /
+            projMilestones.length
+        )
+      : currentProject.actualCompletion;
+
+  // Dynamic SVG Y-coordinate for Nov Actual Pin (scale: 0% = 180px, 100% = 20px)
+  const currentActualY = Math.max(
+    20,
+    Math.min(180, 180 - (liveActualCompletion / 100) * 160)
+  );
 
   const activeSimResult: SimulationResult = runScenarioSimulation(
     {
@@ -264,21 +283,21 @@ export function EquipmentProgressRiskModules({
             <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
               <span className="text-[10px] font-mono text-slate-400 uppercase">Overall Completion</span>
               <div className="flex items-baseline gap-2">
-                <span className="text-xl font-mono font-extrabold text-amber-400">{currentProject.actualCompletion}%</span>
+                <span className="text-xl font-mono font-extrabold text-amber-400">{liveActualCompletion}%</span>
                 <span className="text-[11px] text-slate-500 font-mono">/ {currentProject.plannedCompletion}% Target</span>
               </div>
               <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                <div className="bg-amber-400 h-full rounded-full" style={{ width: `${currentProject.actualCompletion}%` }} />
+                <div className="bg-amber-400 h-full rounded-full transition-all duration-500" style={{ width: `${liveActualCompletion}%` }} />
               </div>
             </div>
 
             <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
               <span className="text-[10px] font-mono text-slate-400 uppercase">Schedule Variance</span>
               <div className="text-xl font-mono font-extrabold text-rose-400">
-                {currentProject.actualCompletion - currentProject.plannedCompletion}%
+                {liveActualCompletion - currentProject.plannedCompletion}%
               </div>
               <span className="text-[10px] text-rose-300 font-mono">
-                ~14 Days Behind Critical Path
+                {liveActualCompletion >= currentProject.plannedCompletion ? "Ahead or On-Track" : "~14 Days Behind Critical Path"}
               </span>
             </div>
 
@@ -358,13 +377,13 @@ export function EquipmentProgressRiskModules({
                   strokeDasharray="4 4"
                 />
 
-                {/* Actual Verified Progress Line up to Month 11 (Nov) */}
+                {/* Actual Verified Progress Line up to Month 11 (Nov) - Dynamically reacts to submitted progress */}
                 <path
-                  d="M 55,180 C 160,176 250,155 350,120 C 430,95 520,78 595,71 L 595,180 L 55,180 Z"
+                  d={`M 55,180 C 160,176 250,155 350,120 C 430,95 520,${Math.round((85 + currentActualY) / 2)} 595,${currentActualY} L 595,180 L 55,180 Z`}
                   fill="url(#actualGrad)"
                 />
                 <path
-                  d="M 55,180 C 160,176 250,155 350,120 C 430,95 520,78 595,71"
+                  d={`M 55,180 C 160,176 250,155 350,120 C 430,95 520,${Math.round((85 + currentActualY) / 2)} 595,${currentActualY}`}
                   fill="none"
                   stroke="#f59e0b"
                   strokeWidth="3"
@@ -381,18 +400,18 @@ export function EquipmentProgressRiskModules({
                   { x: 379, y: 110 },
                   { x: 433, y: 95 },
                   { x: 487, y: 85 },
-                  { x: 541, y: 77 },
-                  { x: 595, y: 71 },
+                  { x: 541, y: Math.round((85 + currentActualY) / 2) },
+                  { x: 595, y: currentActualY },
                 ].map((pt, i) => (
                   <circle key={i} cx={pt.x} cy={pt.y} r="3" fill="#f59e0b" stroke="#0f172a" strokeWidth="1" />
                 ))}
 
-                {/* Current Actual Pin (Nov) */}
-                <circle cx="595" cy="71" r="5" fill="#f59e0b" className="animate-ping opacity-60" />
-                <circle cx="595" cy="71" r="5" fill="#f59e0b" stroke="#ffffff" strokeWidth="1.5" />
-                <rect x="545" y="42" width="100" height="20" rx="4" fill="#0f172a" stroke="#f59e0b" strokeWidth="1" />
-                <text x="595" y="56" fill="#f59e0b" fontSize="10" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
-                  Actual: {currentProject.actualCompletion}% (Nov)
+                {/* Current Actual Pin (Nov) - Dynamically positioned */}
+                <circle cx="595" cy={currentActualY} r="5" fill="#f59e0b" className="animate-ping opacity-60" />
+                <circle cx="595" cy={currentActualY} r="5" fill="#f59e0b" stroke="#ffffff" strokeWidth="1.5" />
+                <rect x="545" y={Math.max(10, currentActualY - 29)} width="100" height="20" rx="4" fill="#0f172a" stroke="#f59e0b" strokeWidth="1" />
+                <text x="595" y={Math.max(10, currentActualY - 29) + 14} fill="#f59e0b" fontSize="10" fontWeight="bold" textAnchor="middle" fontFamily="monospace">
+                  Actual: {liveActualCompletion}% (Nov)
                 </text>
               </svg>
             </div>
@@ -445,16 +464,26 @@ export function EquipmentProgressRiskModules({
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left Column: Update Milestone Section (With Image Attachment Upload) */}
           <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
-            <div>
-              <span className="text-[10px] font-mono font-bold uppercase text-amber-400">
-                DAILY SITE PROGRESS UPDATE
-              </span>
-              <h3 className="font-extrabold text-white text-base mt-0.5">
-                Update Milestone Progress
-              </h3>
-              <p className="text-xs text-slate-400">
-                Record actual completion percentage, work completed, and attach site progress photos.
-              </p>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="text-[10px] font-mono font-bold uppercase text-amber-400">
+                  DAILY SITE PROGRESS UPDATE
+                </span>
+                <h3 className="font-extrabold text-white text-base mt-0.5">
+                  Update Milestone Progress
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Record actual completion percentage, work completed, and attach site progress photos.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleClearMilestoneForm}
+                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-semibold flex items-center gap-1 transition-all"
+                title="Reset all form fields to blank"
+              >
+                ↺ Clear Form
+              </button>
             </div>
 
             {msSuccessMsg && (
@@ -640,23 +669,32 @@ export function EquipmentProgressRiskModules({
                 )}
               </div>
 
-              <button
-                onClick={() => {
-                  onUpdateMilestoneProgress({
-                    milestoneCode: selectedMsCode,
-                    actualProgress: newCompletionPct,
-                    workCompleted: workDoneText,
-                    workOutstanding: workOutText,
-                    remarks: msRemarks,
-                    photoUrl: msPhotoUrl || undefined,
-                  });
-                  setMsSuccessMsg(`✓ Milestone ${selectedMsCode} updated to ${newCompletionPct}% with photo.`);
-                  setTimeout(() => setMsSuccessMsg(""), 3500);
-                }}
-                className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs shadow-md transition-all mt-2"
-              >
-                Submit Milestone Update
-              </button>
+              <div className="flex items-center gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={handleClearMilestoneForm}
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold rounded-lg text-xs border border-slate-700 transition-all flex items-center justify-center gap-1.5"
+                >
+                  ↺ Clear Form
+                </button>
+                <button
+                  onClick={() => {
+                    onUpdateMilestoneProgress({
+                      milestoneCode: selectedMsCode,
+                      actualProgress: newCompletionPct,
+                      workCompleted: workDoneText,
+                      workOutstanding: workOutText,
+                      remarks: msRemarks,
+                      photoUrl: msPhotoUrl || undefined,
+                    });
+                    setMsSuccessMsg(`✓ Milestone ${selectedMsCode} updated to ${newCompletionPct}% with photo.`);
+                    setTimeout(() => setMsSuccessMsg(""), 3500);
+                  }}
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs shadow-md transition-all"
+                >
+                  Submit Milestone Update
+                </button>
+              </div>
             </div>
           </div>
 

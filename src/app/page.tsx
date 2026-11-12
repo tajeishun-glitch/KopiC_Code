@@ -32,6 +32,7 @@ import {
   SeedRisk,
   SeedNotification,
   SeedAuditLog,
+  PurchaseRequestInfo,
 } from "@/lib/seed-data";
 import {
   computeInventoryMetrics,
@@ -48,6 +49,7 @@ import { WhatsAppSiteBotModal } from "@/components/WhatsAppSiteBotModal";
 import { ProjectBlueprintModal } from "@/components/ProjectBlueprintModal";
 import { LoginPage } from "@/components/LoginPage";
 import { AICopilotModal } from "@/components/AICopilotModal";
+import { TopRightNotificationCenter } from "@/components/TopRightNotificationCenter";
 
 type NavTab =
   | "DASHBOARD"
@@ -83,6 +85,7 @@ export default function BuildSmartAIApp() {
   const [isWhatsAppOpen, setIsWhatsAppOpen] = useState<boolean>(false);
   const [isBlueprintOpen, setIsBlueprintOpen] = useState<boolean>(false);
   const [isCopilotOpen, setIsCopilotOpen] = useState<boolean>(false);
+  const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState<boolean>(false);
   const [themeMode, setThemeMode] = useState<"DARK" | "LIGHT">("DARK");
 
   const applyTheme = (mode: "DARK" | "LIGHT") => {
@@ -430,7 +433,7 @@ export default function BuildSmartAIApp() {
     });
   };
 
-  // Handlers for M03 Quality & Defects
+  // Handlers for M03/M05 Quality & Defects
   const handleReportDefect = (payload: {
     materialCode: string;
     vendorCode: string;
@@ -441,6 +444,14 @@ export default function BuildSmartAIApp() {
     description: string;
     correctiveActionText: string;
     photoUrl?: string;
+    defectType?: "VENDOR_DEFECT" | "DELIVERY_DEFECT";
+    transporterName?: string;
+    lorryPlate?: string;
+    bayGate?: string;
+    damagedPkgCount?: number;
+    driverRemarks?: string;
+    batchNumber?: string;
+    millCertRef?: string;
   }) => {
     const defCode = `DEF-2026-${String(defects.length + 106).padStart(3, "0")}`;
     const newDefect: SeedDefectRecord = {
@@ -450,6 +461,8 @@ export default function BuildSmartAIApp() {
       materialCode: payload.materialCode,
       vendorCode: payload.vendorCode,
       deliveryRef: payload.deliveryRef,
+      defectType: payload.defectType || "VENDOR_DEFECT",
+      validationStatus: "PENDING",
       category: payload.category,
       severity: payload.severity,
       rejectedQty: payload.rejectedQty,
@@ -458,12 +471,22 @@ export default function BuildSmartAIApp() {
       reportedByRole: currentUser.role,
       reportedDate: nowTimestamp().slice(0, 10),
       photoUrl: payload.photoUrl,
+      transporterName: payload.transporterName,
+      lorryPlate: payload.lorryPlate,
+      bayGate: payload.bayGate,
+      damagedPkgCount: payload.damagedPkgCount,
+      driverRemarks: payload.driverRemarks,
+      batchNumber: payload.batchNumber,
+      millCertRef: payload.millCertRef,
       status: "OPEN",
       correctiveActions: [
         {
           id: `ca-${Date.now()}`,
           actionDescription: payload.correctiveActionText,
-          responsibleParty: `Vendor ${payload.vendorCode} QA Team`,
+          responsibleParty:
+            payload.defectType === "DELIVERY_DEFECT"
+              ? `Logistics Carrier / Gate Security`
+              : `Vendor ${payload.vendorCode} QA Team`,
           targetDate: new Date(Date.now() + 3 * 86400000)
             .toISOString()
             .slice(0, 10),
@@ -474,54 +497,94 @@ export default function BuildSmartAIApp() {
 
     setDefects((prev) => [newDefect, ...prev]);
 
-    // Recalculate Vendor Score per BR-003 & BR-007
-    setVendors((prev) =>
-      prev.map((v) => {
-        if (v.vendorCode !== payload.vendorCode) return v;
-        const newOpen = v.performance.openDefectsCount + 1;
-        const newInsp =
-          v.performance.totalInspectedQty + Math.max(20, payload.rejectedQty);
-        const newRej = v.performance.rejectedQty + payload.rejectedQty;
-        const newTotalDel =
-          payload.category === "Incomplete delivery"
-            ? v.performance.totalDeliveries + 1
-            : v.performance.totalDeliveries;
-        const newLateDel =
-          payload.category === "Incomplete delivery"
-            ? v.performance.lateDeliveries + 1
-            : v.performance.lateDeliveries;
+    pushAudit({
+      module: "M05 - Material & Vendor performance",
+      action:
+        payload.defectType === "DELIVERY_DEFECT"
+          ? "RECORD_DELIVERY_DEFECT"
+          : "RECORD_VENDOR_DEFECT_PENDING_VALIDATION",
+      recordId: defCode,
+      previousValue: "None",
+      newValue: `Logged ${defCode} (${payload.category}) by ${currentUser.name}. Pending Manager Validation.`,
+    });
+  };
 
-        const calc = calculateVendorScore({
-          totalDeliveries: newTotalDel,
-          onTimeDeliveries: v.performance.onTimeDeliveries,
-          totalInspectedQty: newInsp,
-          acceptedQty: v.performance.acceptedQty,
-          openDefectsCount: newOpen,
-          resolvedDefectsCount: v.performance.resolvedDefectsCount,
-        });
+  const handleValidateDefect = (
+    defectCode: string,
+    isApproved: boolean,
+    denialReason?: string
+  ) => {
+    const target = defects.find((d) => d.defectCode === defectCode);
+    if (!target) return;
 
-        return {
-          ...v,
-          performance: {
-            ...v.performance,
-            totalDeliveries: newTotalDel,
-            lateDeliveries: newLateDel,
-            totalInspectedQty: newInsp,
-            rejectedQty: newRej,
-            openDefectsCount: newOpen,
-            ...calc,
-            lastEvaluatedAt: nowTimestamp(),
-          },
-        };
-      })
+    const newValidationStatus = isApproved ? "VALIDATED" : "DENIED";
+
+    setDefects((prev) =>
+      prev.map((d) =>
+        d.defectCode === defectCode
+          ? {
+              ...d,
+              validationStatus: newValidationStatus,
+              validatedBy: currentUser.name,
+              validatedDate: nowTimestamp().slice(0, 10),
+              denialReason: !isApproved ? (denialReason || "Defect rejected by site manager upon review") : undefined,
+            }
+          : d
+      )
     );
 
+    // If validated AND it's a vendor defect, ONLY THEN include in vendor score calculation!
+    if (isApproved && target.defectType !== "DELIVERY_DEFECT" && target.vendorCode) {
+      setVendors((prev) =>
+        prev.map((v) => {
+          if (v.vendorCode !== target.vendorCode) return v;
+          const newOpen = v.performance.openDefectsCount + 1;
+          const newInsp =
+            v.performance.totalInspectedQty + Math.max(20, target.rejectedQty);
+          const newRej = v.performance.rejectedQty + target.rejectedQty;
+          const newTotalDel =
+            target.category === "Incomplete delivery"
+              ? v.performance.totalDeliveries + 1
+              : v.performance.totalDeliveries;
+          const newLateDel =
+            target.category === "Incomplete delivery"
+              ? v.performance.lateDeliveries + 1
+              : v.performance.lateDeliveries;
+
+          const calc = calculateVendorScore({
+            totalDeliveries: newTotalDel,
+            onTimeDeliveries: v.performance.onTimeDeliveries,
+            totalInspectedQty: newInsp,
+            acceptedQty: v.performance.acceptedQty,
+            openDefectsCount: newOpen,
+            resolvedDefectsCount: v.performance.resolvedDefectsCount,
+          });
+
+          return {
+            ...v,
+            performance: {
+              ...v.performance,
+              totalDeliveries: newTotalDel,
+              lateDeliveries: newLateDel,
+              totalInspectedQty: newInsp,
+              rejectedQty: newRej,
+              openDefectsCount: newOpen,
+              ...calc,
+              lastEvaluatedAt: nowTimestamp(),
+            },
+          };
+        })
+      );
+    }
+
     pushAudit({
-      module: "M03 - Quality & Vendor Intelligence",
-      action: "REFLECT_VENDOR_DEFECT",
-      recordId: defCode,
-      previousValue: `Vendor ${payload.vendorCode}`,
-      newValue: `Logged ${defCode} (${payload.category}, Rejected: ${payload.rejectedQty}) & recalculated Vendor Evaluation Score`,
+      module: "M05 - Material & Vendor performance",
+      action: isApproved ? "VENDOR_DEFECT_VALIDATED" : "VENDOR_DEFECT_DENIED",
+      recordId: defectCode,
+      previousValue: "PENDING",
+      newValue: `${newValidationStatus} by ${currentUser.name} (${currentUser.role})${
+        !isApproved && denialReason ? ` - Reason: ${denialReason}` : " - Vendor evaluation score updated"
+      }`,
     });
   };
 
@@ -538,6 +601,187 @@ export default function BuildSmartAIApp() {
       recordId: defectCode,
       previousValue: "OPEN",
       newValue: status,
+    });
+  };
+
+  // Handlers for Supplier Management Purchase Requests & Approvals
+  const handleSubmitPurchaseRequest = (req: {
+    vendorCode: string;
+    vendorName: string;
+    materialCode: string;
+    quantity: number;
+    targetDate: string;
+    urgency: "NORMAL" | "URGENT" | "EMERGENCY";
+    notes: string;
+  }) => {
+    const newReqId = `PR-${Date.now().toString().slice(-6)}`;
+    const newPR: PurchaseRequestInfo = {
+      requestId: newReqId,
+      vendorCode: req.vendorCode,
+      vendorName: req.vendorName,
+      materialCode: req.materialCode,
+      quantity: req.quantity,
+      targetDate: req.targetDate,
+      urgency: req.urgency,
+      notes: req.notes,
+      requesterId: currentUser.id,
+      requesterName: currentUser.name,
+      requesterRole: currentUser.role,
+      status: "PENDING",
+    };
+
+    // Notice for Project Manager
+    const managerNotif: SeedNotification = {
+      id: `not-pr-${Date.now()}`,
+      alertCode: `PR-REQ-${Date.now().toString().slice(-4)}`,
+      projectCode: selectedProjectCode,
+      title: `Approval Required: Purchase Request for ${req.vendorName}`,
+      description: `${currentUser.name} (${currentUser.role}) submitted purchase request for ${req.quantity} units of ${req.materialCode} (${req.urgency} urgency). Requires Project Manager approval.`,
+      relatedRef: req.vendorCode,
+      priority: req.urgency === "EMERGENCY" ? "CRITICAL" : req.urgency === "URGENT" ? "HIGH" : "MEDIUM",
+      targetRoles: ["PROJECT_MANAGER", "SITE_MANAGER"],
+      targetModule: "M03",
+      isRead: false,
+      createdAt: nowTimestamp().slice(0, 16),
+      purchaseRequest: newPR,
+    };
+
+    // Notice for the requesting Staff / Worker
+    const staffSubmissionNotice: SeedNotification = {
+      id: `not-sub-${Date.now() + 1}`,
+      alertCode: `PR-SUB-${Date.now().toString().slice(-4)}`,
+      projectCode: selectedProjectCode,
+      title: `📨 Purchase Request Submitted: ${req.vendorName}`,
+      description: `Your purchase request for ${req.quantity} units of ${req.materialCode} (${req.urgency}) was submitted and sent to Project Manager for approval.`,
+      relatedRef: req.vendorCode,
+      priority: "MEDIUM",
+      targetRoles: ["SITE_ENGINEER", "FIELD_WORKER"],
+      targetUserId: currentUser.id,
+      targetModule: "M03",
+      isRead: false,
+      createdAt: nowTimestamp().slice(0, 16),
+      purchaseRequest: newPR,
+    };
+
+    setNotifications((prev) => [managerNotif, staffSubmissionNotice, ...prev]);
+
+    pushAudit({
+      module: "M03 - Supplier Management",
+      action: "PURCHASE_REQUEST_SUBMITTED_FOR_APPROVAL",
+      recordId: req.vendorCode,
+      previousValue: "None",
+      newValue: `Staff ${currentUser.name} (${currentUser.role}) submitted PR ${newReqId} for ${req.quantity} units of ${req.materialCode} (${req.urgency}) to ${req.vendorName}. Awaiting Manager Approval.`,
+    });
+  };
+
+  const handleApprovePurchaseRequestNotification = (notificationId: string) => {
+    setNotifications((prev) => {
+      const targetNotif = prev.find((n) => n.id === notificationId);
+      if (!targetNotif || !targetNotif.purchaseRequest) return prev;
+
+      const updatedPR: PurchaseRequestInfo = {
+        ...targetNotif.purchaseRequest,
+        status: "APPROVED",
+        decisionBy: currentUser.name,
+        decisionDate: nowTimestamp().slice(0, 16),
+      };
+
+      // Create an approval notice for the staff member who requested it
+      const staffApprovalNotice: SeedNotification = {
+        id: `not-apr-${Date.now()}`,
+        alertCode: `PR-APR-${Date.now().toString().slice(-4)}`,
+        projectCode: targetNotif.projectCode,
+        title: `✅ Purchase Request APPROVED: ${updatedPR.vendorName}`,
+        description: `Your purchase request for ${updatedPR.quantity} units of ${updatedPR.materialCode} to ${updatedPR.vendorName} was APPROVED by ${currentUser.name} (${currentUser.role}). Transmitted to ERP Procurement.`,
+        relatedRef: updatedPR.vendorCode,
+        priority: "HIGH",
+        targetRoles: ["SITE_ENGINEER", "FIELD_WORKER"],
+        targetUserId: updatedPR.requesterId,
+        targetModule: "M03",
+        isRead: false,
+        createdAt: nowTimestamp().slice(0, 16),
+        purchaseRequest: updatedPR,
+      };
+
+      pushAudit({
+        module: "M03 - Supplier Management",
+        action: "PURCHASE_REQUEST_APPROVED",
+        recordId: updatedPR.vendorCode,
+        previousValue: "PENDING_MANAGER_APPROVAL",
+        newValue: `Project Manager ${currentUser.name} approved PR ${updatedPR.requestId} for ${updatedPR.vendorName}. PO transmitted to ERP.`,
+      });
+
+      return [
+        staffApprovalNotice,
+        ...prev.map((item) =>
+          item.purchaseRequest?.requestId === updatedPR.requestId || item.id === notificationId
+            ? {
+                ...item,
+                isRead: true,
+                title: `✓ Approved: Purchase Request for ${updatedPR.vendorName}`,
+                purchaseRequest: updatedPR,
+              }
+            : item
+        ),
+      ];
+    });
+  };
+
+  const handleRejectPurchaseRequestNotification = (
+    notificationId: string,
+    reason: string
+  ) => {
+    setNotifications((prev) => {
+      const targetNotif = prev.find((n) => n.id === notificationId);
+      if (!targetNotif || !targetNotif.purchaseRequest) return prev;
+
+      const finalReason = reason.trim() || "Rejected by Project Manager upon procurement review.";
+      const updatedPR: PurchaseRequestInfo = {
+        ...targetNotif.purchaseRequest,
+        status: "REJECTED",
+        decisionBy: currentUser.name,
+        decisionDate: nowTimestamp().slice(0, 16),
+        rejectionReason: finalReason,
+      };
+
+      // Create a rejection notice for the staff member who requested it
+      const staffRejectionNotice: SeedNotification = {
+        id: `not-rej-${Date.now()}`,
+        alertCode: `PR-REJ-${Date.now().toString().slice(-4)}`,
+        projectCode: targetNotif.projectCode,
+        title: `❌ Purchase Request REJECTED: ${updatedPR.vendorName}`,
+        description: `Your purchase request for ${updatedPR.quantity} units of ${updatedPR.materialCode} to ${updatedPR.vendorName} was REJECTED by ${currentUser.name} (${currentUser.role}). Reason: ${finalReason}`,
+        relatedRef: updatedPR.vendorCode,
+        priority: "HIGH",
+        targetRoles: ["SITE_ENGINEER", "FIELD_WORKER"],
+        targetUserId: updatedPR.requesterId,
+        targetModule: "M03",
+        isRead: false,
+        createdAt: nowTimestamp().slice(0, 16),
+        purchaseRequest: updatedPR,
+      };
+
+      pushAudit({
+        module: "M03 - Supplier Management",
+        action: "PURCHASE_REQUEST_REJECTED",
+        recordId: updatedPR.vendorCode,
+        previousValue: "PENDING_MANAGER_APPROVAL",
+        newValue: `Project Manager ${currentUser.name} rejected PR ${updatedPR.requestId} for ${updatedPR.vendorName}. Reason: ${finalReason}`,
+      });
+
+      return [
+        staffRejectionNotice,
+        ...prev.map((item) =>
+          item.purchaseRequest?.requestId === updatedPR.requestId || item.id === notificationId
+            ? {
+                ...item,
+                isRead: true,
+                title: `✕ Rejected: Purchase Request for ${updatedPR.vendorName}`,
+                purchaseRequest: updatedPR,
+              }
+            : item
+        ),
+      ];
     });
   };
 
@@ -688,6 +932,28 @@ export default function BuildSmartAIApp() {
       })
     );
 
+    setProjects((prev) =>
+      prev.map((p) => {
+        if (p.projectCode !== selectedProjectCode) return p;
+        const pMilestones = milestones.map((m) =>
+          m.milestoneCode === payload.milestoneCode
+            ? { ...m, actualProgress: payload.actualProgress }
+            : m
+        ).filter((m) => m.projectCode === selectedProjectCode);
+        const avgCompletion =
+          pMilestones.length > 0
+            ? Math.round(
+                pMilestones.reduce((acc, m) => acc + m.actualProgress, 0) /
+                  pMilestones.length
+              )
+            : payload.actualProgress;
+        return {
+          ...p,
+          actualCompletion: avgCompletion,
+        };
+      })
+    );
+
     setProgressUpdates((prev) => [
       {
         id: `prg-${Date.now()}`,
@@ -769,7 +1035,7 @@ export default function BuildSmartAIApp() {
     {
       group: "PROCUREMENT & YARD",
       items: [
-        { id: "M01_VENDOR" as NavTab, label: "M03: Vendor Finder", icon: "🏢", badge: undefined },
+        { id: "M01_VENDOR" as NavTab, label: "M03: Supplier Management", icon: "🏢", badge: undefined },
         {
           id: "M02_INVENTORY" as NavTab,
           label: "M04: Live Inventory Info",
@@ -783,7 +1049,7 @@ export default function BuildSmartAIApp() {
       items: [
         {
           id: "M03_QUALITY" as NavTab,
-          label: "M05: Defect Log & Vendor Score",
+          label: "M05: Material & Vendor performance",
           icon: "🛡️",
           badge: projDefects.filter((d) => d.status !== "RESOLVED" && d.status !== "CLOSED").length,
         },
@@ -1049,7 +1315,7 @@ export default function BuildSmartAIApp() {
           )}
 
           {/* ============================================================== */}
-          {/* 2 & 3. MODULE 01: AI SCANNER & VENDOR FINDER                   */}
+          {/* 2 & 3. MODULE 01: AI SCANNER & SUPPLIER MANAGEMENT            */}
           {/* ============================================================== */}
           {(activeTab === "M01_SCANNER" || activeTab === "M01_VENDOR") && (
             <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg text-slate-900">
@@ -1062,15 +1328,55 @@ export default function BuildSmartAIApp() {
                 inventory={inventory}
                 defects={defects}
                 onNavigateTab={(t) => setActiveTab(t as NavTab)}
-                onSubmitPurchaseRequest={(req) => {
+                onUpdateVendorStatusScore={({ vendorCode, newStatus, newScore, reason }) => {
+                  const targetVendor = vendors.find((v) => v.vendorCode === vendorCode);
+                  const prevStatus = targetVendor?.performance.evaluationStatus || "UNKNOWN";
+                  const prevScore = targetVendor?.performance.overallScore ?? 0;
+                  setVendors((prev) =>
+                    prev.map((v) =>
+                      v.vendorCode === vendorCode
+                        ? {
+                            ...v,
+                            performance: {
+                              ...v.performance,
+                              evaluationStatus: newStatus,
+                              overallScore: newScore,
+                              aiRiskSummary: `Manager Override: Set status to ${newStatus} (${newScore}%). Reason: ${reason}`,
+                              lastEvaluatedAt: new Date().toISOString().slice(0, 10),
+                            },
+                          }
+                        : v
+                    )
+                  );
                   pushAudit({
-                    module: "M03 - Vendor Finder",
-                    action: "PURCHASE_REQUEST_TRANSMITTED",
-                    recordId: req.vendorCode,
-                    previousValue: "None",
-                    newValue: `Order ${req.quantity} units of ${req.materialCode} (${req.urgency}) to ${selectedProjectCode}`,
+                    module: "M03 - Supplier Management",
+                    action: "VENDOR_STATUS_SCORE_OVERRIDE",
+                    recordId: vendorCode,
+                    previousValue: `Status: ${prevStatus}, Score: ${prevScore}%`,
+                    newValue: `Status: ${newStatus}, Score: ${newScore}% | Justification: ${reason}`,
                   });
                 }}
+                notifications={notifications}
+                onApproveNotification={handleApprovePurchaseRequestNotification}
+                onRejectNotification={handleRejectPurchaseRequestNotification}
+                onApprovePurchaseRequest={(ven) => {
+                  // Find any pending notification for this vendor or create audit
+                  const pendingN = notifications.find(
+                    (n) => n.purchaseRequest?.vendorCode === ven.vendorCode && n.purchaseRequest.status === "PENDING"
+                  );
+                  if (pendingN) {
+                    handleApprovePurchaseRequestNotification(pendingN.id);
+                  } else {
+                    pushAudit({
+                      module: "M03 - Supplier Management",
+                      action: "PURCHASE_REQUEST_APPROVED",
+                      recordId: ven.vendorCode,
+                      previousValue: "PENDING_MANAGER_APPROVAL",
+                      newValue: `Manager approved purchase request order to preferred supplier ${ven.name} (${ven.vendorCode})`,
+                    });
+                  }
+                }}
+                onSubmitPurchaseRequest={handleSubmitPurchaseRequest}
               />
             </div>
           )}
@@ -1095,6 +1401,7 @@ export default function BuildSmartAIApp() {
                 onRecordGoodsReceipt={handleRecordGoodsReceipt}
                 onTransferMaterial={handleTransferMaterial}
                 onReportDefect={handleReportDefect}
+                onValidateDefect={handleValidateDefect}
                 onUpdateDefectStatus={handleUpdateDefectStatus}
                 onSyncInventory={() => {
                   pushAudit({
@@ -1376,11 +1683,12 @@ export default function BuildSmartAIApp() {
               </select>
             </div>
 
+
             {/* TOP-RIGHT SCANNER ICON (Across all pages) */}
             <button
               onClick={() => setIsScannerModalOpen(true)}
               className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-300 font-mono font-bold text-xs flex items-center gap-1.5 transition-all shadow-md group"
-              title="Open AI Material Scanner (Camera or Upload)"
+              title="Open AI Material Scanner (Upload or Presets)"
             >
               <span className="text-sm group-hover:scale-110 transition-transform">📷</span>
               <span className="hidden sm:inline">Scanner</span>
@@ -1441,45 +1749,25 @@ export default function BuildSmartAIApp() {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse hidden sm:inline" />
             </button>
 
-            {/* TOP-RIGHT THEME TOGGLE (Office-to-Field Dual Theme) */}
-            <div className="flex items-center p-0.5 rounded-lg border border-slate-700/80 bg-slate-900/90 shadow-md">
-              <button
-                type="button"
-                onClick={() => applyTheme("LIGHT")}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                  themeMode === "LIGHT"
-                    ? "bg-[#0071E3] text-white shadow-sm ring-1 ring-[#0071E3] font-bold apple-keep-white"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-                title="Light Mode — Apple Cupertino Spatial Glass (Office / HQ)"
-              >
-                <span className="text-xs">☀️</span>
-                <span className="hidden sm:inline">Light</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => applyTheme("DARK")}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                  themeMode === "DARK"
-                    ? "bg-[#F59E0B] text-[#0C0A09] shadow-sm ring-1 ring-[#F59E0B] font-black"
-                    : "text-slate-400 hover:text-slate-200"
-                }`}
-                title="Dark Mode — Hilti / CAT Field-Rugged High-Contrast (Site / Field)"
-              >
-                <span className="text-xs">🌙</span>
-                <span className="hidden sm:inline">Dark</span>
-              </button>
-            </div>
-
-            {/* SIGN OUT / SWITCH ACCOUNT BUTTON */}
-            <button
-              onClick={() => setIsAuthenticated(false)}
-              className="px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 font-mono font-bold text-xs flex items-center gap-1.5 transition-all shadow-md"
-              title="Sign out and return to the Login Portal"
-            >
-              <span>🚪</span>
-              <span className="hidden sm:inline">Sign Out</span>
-            </button>
+            {/* TOP-RIGHT NOTIFICATION BELL ICON (Manager & Staff Approvals) */}
+            <TopRightNotificationCenter
+              isOpen={isNotifDropdownOpen}
+              onToggle={() => setIsNotifDropdownOpen(!isNotifDropdownOpen)}
+              onClose={() => setIsNotifDropdownOpen(false)}
+              currentUser={currentUser}
+              notifications={notifications}
+              onMarkAllAsRead={() =>
+                setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })))
+              }
+              onMarkAsRead={(id) =>
+                setNotifications((prev) =>
+                  prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+                )
+              }
+              onApprovePurchaseRequest={handleApprovePurchaseRequestNotification}
+              onRejectPurchaseRequest={handleRejectPurchaseRequestNotification}
+              onNavigateTab={(t) => setActiveTab(t as NavTab)}
+            />
           </div>
         </div>
       </header>
@@ -1531,15 +1819,48 @@ export default function BuildSmartAIApp() {
                 ))}
               </div>
 
-              {/* Sidebar Footer User / Project Badge */}
-              <div className="pt-4 mt-4 border-t border-slate-800/80 text-[11px] font-mono text-slate-400 space-y-1.5 bg-slate-950/50 p-2.5 rounded-lg border">
+              {/* Sidebar Footer User / Project Badge & Theme Switch */}
+              <div className="pt-3 mt-4 border-t border-slate-800/80 text-[11px] font-mono text-slate-400 space-y-2 bg-slate-950/50 p-2.5 rounded-lg border">
+                {/* Theme Switcher at bottom of sidebar */}
+                <div className="flex items-center justify-between p-1 rounded-lg border border-slate-700/80 bg-slate-900/90 shadow-md">
+                  <span className="text-[10px] font-bold text-slate-400 px-1">THEME:</span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => applyTheme("LIGHT")}
+                      className={`px-2 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all ${
+                        themeMode === "LIGHT"
+                          ? "bg-[#0071E3] text-white shadow-sm ring-1 ring-[#0071E3] font-bold apple-keep-white"
+                          : "text-slate-400 hover:text-slate-200"
+                      }`}
+                      title="Light Mode — Apple Cupertino Spatial Glass"
+                    >
+                      <span className="text-xs">☀️</span>
+                      <span>Light</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => applyTheme("DARK")}
+                      className={`px-2 py-1 rounded text-xs font-semibold flex items-center gap-1 transition-all ${
+                        themeMode === "DARK"
+                          ? "bg-[#F59E0B] text-[#0C0A09] shadow-sm ring-1 ring-[#F59E0B] font-black"
+                          : "text-slate-400 hover:text-slate-200"
+                      }`}
+                      title="Dark Mode — Hilti / CAT Field-Rugged High-Contrast"
+                    >
+                      <span className="text-xs">🌙</span>
+                      <span>Dark</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="flex justify-between items-center">
                   <span className="text-slate-400 font-bold">OPERATOR:</span>
                   <span className="text-amber-400 font-bold truncate max-w-[120px]">{currentUser.name}</span>
                 </div>
                 <button
                   onClick={() => setIsAuthenticated(false)}
-                  className="w-full mt-2 py-1.5 rounded bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-bold text-[10px] flex items-center justify-center gap-1 transition-all"
+                  className="w-full mt-1 py-1.5 rounded bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-bold text-[10px] flex items-center justify-center gap-1 transition-all"
                 >
                   <span>🚪</span>
                   <span>Sign Out</span>

@@ -5,7 +5,8 @@
 export type RoleType =
   | "PROJECT_MANAGER"
   | "SITE_MANAGER"
-  | "SITE_ENGINEER";
+  | "SITE_ENGINEER"
+  | "FIELD_WORKER";
 
 export interface SeedUser {
   id: string;
@@ -175,6 +176,18 @@ export interface SeedDefectRecord {
     status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
     resolutionNotes?: string;
   }[];
+  defectType?: "VENDOR_DEFECT" | "DELIVERY_DEFECT";
+  validationStatus?: "PENDING" | "VALIDATED" | "DENIED";
+  validatedBy?: string;
+  validatedDate?: string;
+  denialReason?: string;
+  transporterName?: string;
+  lorryPlate?: string;
+  bayGate?: string;
+  damagedPkgCount?: number;
+  driverRemarks?: string;
+  batchNumber?: string;
+  millCertRef?: string;
 }
 
 export interface SeedEquipment {
@@ -300,6 +313,24 @@ export interface SeedRisk {
   resolutionNotes?: string;
 }
 
+export interface PurchaseRequestInfo {
+  requestId: string;
+  vendorCode: string;
+  vendorName: string;
+  materialCode: string;
+  quantity: number;
+  targetDate?: string;
+  urgency: "NORMAL" | "URGENT" | "EMERGENCY";
+  notes?: string;
+  requesterId: string;
+  requesterName: string;
+  requesterRole: RoleType;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  decisionBy?: string;
+  decisionDate?: string;
+  rejectionReason?: string;
+}
+
 export interface SeedNotification {
   id: string;
   alertCode: string;
@@ -312,6 +343,8 @@ export interface SeedNotification {
   targetModule: "M01" | "M02" | "M03" | "M04" | "M05" | "M06";
   isRead: boolean;
   createdAt: string;
+  targetUserId?: string;
+  purchaseRequest?: PurchaseRequestInfo;
 }
 
 export interface SeedAuditLog {
@@ -371,6 +404,23 @@ export const INITIAL_USERS: SeedUser[] = [
     email: "meiling.tan@gamuda.com.my",
     role: "SITE_ENGINEER",
     title: "Lead Structural & Field Site Engineer",
+    assignedProjectCodes: [
+      "PRJ-ALPHA",
+      "PRJ-BETA",
+      "PRJ-GAMMA",
+      "PRJ-SYDNEY",
+      "PRJ-SG-CRL",
+      "PRJ-UK-HS2",
+      "PRJ-TW-TY",
+    ],
+  },
+  {
+    id: "usr-wrk-01",
+    userCode: "USR-004",
+    name: "Kassim Selamat",
+    email: "kassim.selamat@gamuda.com.my",
+    role: "FIELD_WORKER",
+    title: "Site Worker / Inventory Handler",
     assignedProjectCodes: [
       "PRJ-ALPHA",
       "PRJ-BETA",
@@ -515,7 +565,7 @@ export const INITIAL_MATERIALS: SeedMaterial[] = [
     specifications: "MS EN 197-1:2014 CEM I 52.5N, 50kg multi-ply kraft bag, compressive strength >= 52.5 MPa at 28 days",
     unit: "bag",
     description: "High-early-strength Ordinary Portland Cement for underground station structural slabs, columns, and grouting.",
-    imageUrl: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=600&q=80",
+    imageUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQpqFfV8j6N1kYqppEvZ4pJCa4sxs4hB8HbfLpXvx3mHQ&s=10",
     alternativeCodes: ["CEM-006"],
     aiCharacteristics: [
       "50kg woven/kraft paper bag packaging",
@@ -532,7 +582,7 @@ export const INITIAL_MATERIALS: SeedMaterial[] = [
     specifications: "MS 146 / BS 4449:2005 Grade B500B, 16mm diameter ribbed bar, 12m standard length, yield strength 500 MPa",
     unit: "MT",
     description: "Primary structural reinforcement steel bars for diaphragm walls, transfer beams, and station concourse slabs.",
-    imageUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80",
+    imageUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSqTBoWmla5xBYmlZCm3QpGcBH-CFt-IyWggQ1fagcQtf654jZM9J-ziBk&s=10",
     alternativeCodes: ["STL-007"],
     aiCharacteristics: [
       "Ribbed transverse lug pattern on steel surface",
@@ -549,7 +599,7 @@ export const INITIAL_MATERIALS: SeedMaterial[] = [
     specifications: "ISO 13006 Group BIa, 600x600x10mm, Water absorption < 0.1%, Anti-slip R10 rating for public concourse",
     unit: "m2",
     description: "High-traffic slip-resistant vitrified porcelain tiles for station concourse and pedestrian walkways.",
-    imageUrl: "https://images.unsplash.com/photo-1615971677499-5467cbab01c0?auto=format&fit=crop&w=600&q=80",
+    imageUrl: "https://spcdn.shortpixel.ai/spio/ret_img+q_cdnize+to_webp+s_webp/jubincantik.com/wp-content/uploads/2025/04/LEIGHTON-DARK-GREY-600X600-5.jpg",
     alternativeCodes: [],
     aiCharacteristics: [
       "600x600mm rectified matte grey ceramic surface",
@@ -566,7 +616,7 @@ export const INITIAL_MATERIALS: SeedMaterial[] = [
     specifications: "MS EN 206 Grade C40/50, Slump 180±25mm, W/C ratio <= 0.42 with crystalline waterproofing admixture",
     unit: "m3",
     description: "Pumpable waterproof structural concrete for basement retaining walls and deep foundation piles.",
-    imageUrl: "https://images.unsplash.com/photo-1541888946425-d09bb18086f6?auto=format&fit=crop&w=600&q=80",
+    imageUrl: "https://cdn1.npcdn.net/images/200b7ef268c297cb1bdd90ace1cc441e_1732508785.webp?md5id=24ed200dcfcc1b04fad9d6e361e41ac9&new_width=1000&new_height=1000&w=-62170008925&from=jpeg&type=9",
     alternativeCodes: [],
     aiCharacteristics: [
       "Fresh wet aggregate-cement slurry from transit mixer",
@@ -583,7 +633,7 @@ export const INITIAL_MATERIALS: SeedMaterial[] = [
     specifications: "600x200x100mm precision block, Dry density 550 kg/m3, Fire rating 4 hours, MS 2282 certified",
     unit: "pallet",
     description: "Lightweight insulated masonry blocks for station plant rooms and non-load-bearing internal partitions.",
-    imageUrl: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?auto=format&fit=crop&w=600&q=80",
+    imageUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRak1IxDCjdsVygr0A8LILURzuWUeR60YkmJ9qW1VcXp5qQQQ-CTR1JuR9f&s=10",
     alternativeCodes: [],
     aiCharacteristics: [
       "White/light-grey cellular porous concrete block",
@@ -600,7 +650,7 @@ export const INITIAL_MATERIALS: SeedMaterial[] = [
     specifications: "MS EN 197-1 CEM III/A 42.5N with 45% Ground Granulated Blast-Furnace Slag, low hydration heat",
     unit: "bag",
     description: "Alternative lower-carbon blended cement. Requires Site Engineer specification verification before substituting CEM-001.",
-    imageUrl: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=600&q=80",
+    imageUrl: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQpqFfV8j6N1kYqppEvZ4pJCa4sxs4hB8HbfLpXvx3mHQ&s=10",
     alternativeCodes: ["CEM-001"],
     aiCharacteristics: [
       "50kg green-striped kraft bag",
@@ -1267,6 +1317,10 @@ export const INITIAL_DEFECTS: SeedDefectRecord[] = [
     materialCode: "STL-002",
     vendorCode: "V002",
     deliveryRef: "DO-APEX-7741",
+    defectType: "VENDOR_DEFECT",
+    validationStatus: "VALIDATED",
+    validatedBy: "Ir. Razak Ahmad",
+    validatedDate: "2026-11-11",
     category: "Poor product quality",
     severity: "CRITICAL",
     rejectedQty: 24,
@@ -1274,7 +1328,6 @@ export const INITIAL_DEFECTS: SeedDefectRecord[] = [
     reportedBy: "Engr. Mei Ling Tan",
     reportedByRole: "SITE_ENGINEER",
     reportedDate: "2026-11-11",
-    photoUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80",
     status: "OPEN",
     correctiveActions: [
       {
@@ -1294,6 +1347,13 @@ export const INITIAL_DEFECTS: SeedDefectRecord[] = [
     materialCode: "STL-002",
     vendorCode: "V002",
     deliveryRef: "DO-APEX-7690",
+    defectType: "DELIVERY_DEFECT",
+    validationStatus: "VALIDATED",
+    transporterName: "Apex Haulage Logistics",
+    lorryPlate: "WXY 8812",
+    bayGate: "Unloading Bay 2 (Zone B)",
+    damagedPkgCount: 0,
+    driverRemarks: "Driver reported major highway breakdown near Rawang toll.",
     category: "Incomplete delivery",
     severity: "HIGH",
     rejectedQty: 0,
@@ -1319,6 +1379,8 @@ export const INITIAL_DEFECTS: SeedDefectRecord[] = [
     materialCode: "CON-004",
     vendorCode: "V005",
     deliveryRef: "DO-SQR-3318",
+    defectType: "VENDOR_DEFECT",
+    validationStatus: "PENDING",
     category: "Incorrect specifications",
     severity: "HIGH",
     rejectedQty: 18,
@@ -1344,6 +1406,13 @@ export const INITIAL_DEFECTS: SeedDefectRecord[] = [
     materialCode: "TIL-003",
     vendorCode: "V004",
     deliveryRef: "DO-NIRO-1182",
+    defectType: "DELIVERY_DEFECT",
+    validationStatus: "VALIDATED",
+    transporterName: "Niro Freight Express",
+    lorryPlate: "BKM 4490",
+    bayGate: "Warehouse Gate 1",
+    damagedPkgCount: 4,
+    driverRemarks: "Forklift driver snagged packaging during transit offloading.",
     category: "Packaging damage",
     severity: "LOW",
     rejectedQty: 28,
@@ -2018,6 +2087,63 @@ export const INITIAL_RISKS: SeedRisk[] = [
 
 // Section 15: Notification & Alert Requirements (AL-001 to AL-010)
 export const INITIAL_NOTIFICATIONS: SeedNotification[] = [
+  {
+    id: "not-pr-sample-01",
+    alertCode: "PR-REQ-8801",
+    projectCode: "PRJ-ALPHA",
+    title: "Approval Required: Purchase Request for Southern Steel Berhad",
+    description: "Kassim Selamat (Site Worker) submitted purchase request for 50 MT T16 High-Tensile Steel Rebar (NORMAL schedule). Awaiting Project Manager sign-off.",
+    relatedRef: "VND-001",
+    priority: "HIGH",
+    targetRoles: ["PROJECT_MANAGER", "SITE_MANAGER"],
+    targetModule: "M03",
+    isRead: false,
+    createdAt: "2026-11-12 11:30",
+    purchaseRequest: {
+      requestId: "PR-2026-8801",
+      vendorCode: "VND-001",
+      vendorName: "Southern Steel Berhad",
+      materialCode: "STL-002",
+      quantity: 50,
+      targetDate: "2026-11-20",
+      urgency: "NORMAL",
+      notes: "Main Transfer Slab Zone C concreting scheduled for next week.",
+      requesterId: "usr-wrk-01",
+      requesterName: "Kassim Selamat",
+      requesterRole: "FIELD_WORKER",
+      status: "PENDING",
+    },
+  },
+  {
+    id: "not-pr-sample-02",
+    alertCode: "PR-ACK-7702",
+    projectCode: "PRJ-ALPHA",
+    title: "✓ Purchase Request APPROVED: Holcim Malaysia Sdn Bhd",
+    description: "Your purchase request for 200 bags of Portland Cement CEM I 42.5N was APPROVED by Ir. Razak Ahmad (Project Manager). Transmitted to procurement.",
+    relatedRef: "VND-002",
+    priority: "HIGH",
+    targetRoles: ["SITE_ENGINEER", "FIELD_WORKER"],
+    targetUserId: "usr-eng-01",
+    targetModule: "M03",
+    isRead: false,
+    createdAt: "2026-11-12 09:15",
+    purchaseRequest: {
+      requestId: "PR-2026-7702",
+      vendorCode: "VND-002",
+      vendorName: "Holcim Malaysia Sdn Bhd",
+      materialCode: "CEM-001",
+      quantity: 200,
+      targetDate: "2026-11-18",
+      urgency: "URGENT",
+      notes: "Direct bay delivery to Gate 2.",
+      requesterId: "usr-eng-01",
+      requesterName: "Engr. Mei Ling Tan",
+      requesterRole: "SITE_ENGINEER",
+      status: "APPROVED",
+      decisionBy: "Ir. Razak Ahmad",
+      decisionDate: "2026-11-12 10:00",
+    },
+  },
   {
     id: "not-001",
     alertCode: "AL-001",

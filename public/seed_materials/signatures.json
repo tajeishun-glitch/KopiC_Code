@@ -1,0 +1,42 @@
+[
+  {
+    "code": "BLK-005",
+    "name": "Autoclaved Aerated Concrete (AAC) Lightweight Blocks",
+    "url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRak1IxDCjdsVygr0A8LILURzuWUeR60YkmJ9qW1VcXp5qQQQ-CTR1JuR9f&s=10",
+    "file": "aac_blocks.jpg",
+    "size": 36690,
+    "md5": "a0a07175bdfff53c5ef3c3008eb400e3"
+  },
+  {
+    "code": "CEM-001",
+    "name": "Portland Cement (Ordinary Portland CEM I 52.5N)",
+    "url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQpqFfV8j6N1kYqppEvZ4pJCa4sxs4hB8HbfLpXvx3mHQ&s=10",
+    "file": "portland_cement.jpg",
+    "size": 57189,
+    "md5": "14c4e80e5b1641730fdc5fb893b3a3cd"
+  },
+  {
+    "code": "CON-004",
+    "name": "Ready-Mix Concrete Grade C40/50 (Waterproof Tremie Mix)",
+    "url": "https://cdn1.npcdn.net/images/200b7ef268c297cb1bdd90ace1cc441e_1732508785.webp?md5id=24ed200dcfcc1b04fad9d6e361e41ac9&new_width=1000&new_height=1000&w=-62170008925&from=jpeg&type=9",
+    "file": "readymix_concrete.webp",
+    "size": 294010,
+    "md5": "e13410ff46990a7fd4cdc3df776ab06e"
+  },
+  {
+    "code": "STL-002",
+    "name": "High-Tensile Deformed Steel Rebar T16 (Grade B500B)",
+    "url": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSqTBoWmla5xBYmlZCm3QpGcBH-CFt-IyWggQ1fagcQtf654jZM9J-ziBk&s=10",
+    "file": "steel_rebar.jpg",
+    "size": 49913,
+    "md5": "d5a9372ca3b87cfdcd36d4d3b9fa5276"
+  },
+  {
+    "code": "TIL-003",
+    "name": "Heavy-Duty Homogeneous Porcelain Floor Tiles (600x600mm)",
+    "url": "https://spcdn.shortpixel.ai/spio/ret_img+q_cdnize+to_webp+s_webp/jubincantik.com/wp-content/uploads/2025/04/LEIGHTON-DARK-GREY-600X600-5.jpg",
+    "file": "porcelain_tiles.jpg",
+    "size": 111159,
+    "md5": "e19f2146fc77edfdd2b52f21c1315f7f"
+  }
+]
