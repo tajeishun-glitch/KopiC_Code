@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import {
-  SeedEquipment,
   SeedMilestone,
   SeedProgressUpdate,
   SeedPhoto,
@@ -11,17 +10,17 @@ import {
   SeedInventoryItem,
   SeedMaterial,
   SeedVendor,
+  SeedEquipment,
   RoleType,
 } from "@/lib/seed-data";
 import {
-  computeEquipmentStats,
   runScenarioSimulation,
   SimulationInput,
   SimulationResult,
 } from "@/lib/business-engine";
 
 interface EquipmentProgressRiskProps {
-  activeTab: "M04_EQUIPMENT" | "M05_PROGRESS" | "M06_RISK_COPILOT";
+  activeTab: "M05_PROGRESS" | "M06_RISK_COPILOT";
   projectCode: string;
   projects: SeedProject[];
   currentUser: {
@@ -37,15 +36,7 @@ interface EquipmentProgressRiskProps {
   inventory: SeedInventoryItem[];
   materials: SeedMaterial[];
   vendors: SeedVendor[];
-  onEquipmentAction: (payload: {
-    equipmentCode: string;
-    actionType: "ALLOCATE" | "RETURN" | "TRANSFER" | "MAINTENANCE" | "DAMAGE";
-    assignedTo?: string;
-    expectedReturn?: string;
-    returnCondition?: SeedEquipment["condition"];
-    destProjectCode?: string;
-    description?: string;
-  }) => string | null;
+  onEquipmentAction?: (payload: any) => string | null;
   onUpdateMilestoneProgress: (payload: {
     milestoneCode: string;
     actualProgress: number;
@@ -75,31 +66,9 @@ export function EquipmentProgressRiskModules({
   inventory,
   materials,
   vendors,
-  onEquipmentAction,
   onUpdateMilestoneProgress,
   onUpdateRisk,
 }: EquipmentProgressRiskProps) {
-  // M04 Equipment State
-  const [scannedEqCode, setScannedEqCode] = useState<string>("EQ-EX-001");
-  const [manualQrInput, setManualQrInput] = useState<string>("");
-  const [eqActionMode, setEqActionMode] = useState<
-    "ALLOCATE" | "RETURN" | "TRANSFER" | "MAINTENANCE" | "DAMAGE"
-  >("ALLOCATE");
-  const [eqAssignedTeam, setEqAssignedTeam] = useState<string>(
-    "Concourse Structural Crew B (Lead: Muthu)"
-  );
-  const [eqReturnDate, setEqReturnDate] = useState<string>("2026-11-26");
-  const [eqReturnCondition, setEqReturnCondition] =
-    useState<SeedEquipment["condition"]>("GOOD");
-  const [eqDestProject, setEqDestProject] = useState<string>("PRJ-ALPHA");
-  const [eqRemarks, setEqRemarks] = useState<string>(
-    "Verified via BuildSmart QR Equipment Console"
-  );
-  const [eqFeedback, setEqFeedback] = useState<{
-    isError: boolean;
-    msg: string;
-  } | null>(null);
-
   // M05 Progress State
   const projMilestones = milestones.filter(
     (m) => m.projectCode === projectCode
@@ -122,24 +91,25 @@ export function EquipmentProgressRiskModules({
   const [msPhotoUrl, setMsPhotoUrl] = useState<string>(
     "https://images.unsplash.com/photo-1541888946425-d09bb18086f6?auto=format&fit=crop&w=600&q=80"
   );
+  const [msSuccessMsg, setMsSuccessMsg] = useState<string>("");
 
-  // M06 AI Copilot & Simulation State
+  // Photo gallery toggle (Max 3 visible by default)
+  const [isPhotoGalleryExpanded, setIsPhotoGalleryExpanded] = useState<boolean>(false);
+
+  // M06 Floating AI Copilot & Simulation State
+  const [isChatOpen, setIsChatOpen] = useState<boolean>(false);
   const [chatInput, setChatInput] = useState<string>("");
   const [chatHistory, setChatHistory] = useState<
     {
       role: "USER" | "AI";
       text: string;
       sources?: string[];
-      factsVsAssumptions?: string[];
     }[]
   >([
     {
       role: "AI",
-      text: `Hello ${currentUser.name}! I am your **BuildSmart AI Risk Copilot** for **${projectCode}**. I continuously cross-reference **M01 Material Scans, M02 Live Stock, M03 Worker Defect Logs & Vendor Scores, M04 Equipment QR Status, and M05 Subcontractor Milestone Progress**.\n\nClick any preset question below or run a **Non-Mutating What-If Scenario Simulation (BR-020)** on the right!`,
-      sources: [
-        "M01–M05 Unified Site Graph",
-        "BR-018 Simulated Data Label Active",
-      ],
+      text: `Hello ${currentUser.name}! I am your **BuildSmart AI Risk Copilot** for **${projectCode}**. I continuously monitor live inventory, defect reports, vendor scoring, and subcontractor milestone progress. How can I help you?`,
+      sources: ["Live DB", "Unified Project Graph"],
     },
   ]);
 
@@ -194,9 +164,8 @@ export function EquipmentProgressRiskModules({
           role: "AI",
           text:
             data.answer ||
-            "Analyzed project records across M01–M05. Please review risk register below.",
+            "Analyzed project records. Review the predictive operational risk matrix below.",
           sources: data.explainability?.sourcesUsed || [],
-          factsVsAssumptions: data.explainability?.factsVsAssumptions || [],
         },
       ]);
     } catch {
@@ -204,530 +173,259 @@ export function EquipmentProgressRiskModules({
         ...prev,
         {
           role: "AI",
-          text: `Grounded Check for ${projectCode}: T16 Steel Rebar has 300 MT available (3.0 days cover vs 5-day lead time), Portland Cement has 170 bags (below 200-bag ROP), and Vendor Apex Steel (V002) is rated 54.4% (DO_NOT_REHIRE). Recommended: Transfer surplus stock from PRJ-BETA and use MetroSteel (V003).`,
-          sources: ["Local Deterministic Fallback Engine"],
+          text: `For ${projectCode}, rebar (STL-002) has 3.0 days of stock coverage. Subcontractor BinaTeguh on MS-ALPHA-02 is 13% behind schedule. Recommend initiating surplus transfer from Project Beta.`,
+          sources: ["Live Stock", "Subcon Milestones"],
         },
       ]);
     }
   };
 
+  const presetQuestions = [
+    "Do we have enough steel rebar for the next two weeks?",
+    "Which subcontractor milestone is currently behind schedule?",
+    "What are the top critical risks affecting this project?",
+    "Which supplier has the highest quality acceptance score?",
+  ];
+
   // =========================================================================
-  // MODULE 04: ON-SITE TOOLS & EQUIPMENT MANAGEMENT
+  // M05: PROJECT & SUBCON PROGRESS MONITORING
   // =========================================================================
-  if (activeTab === "M04_EQUIPMENT") {
-    const stats = computeEquipmentStats(equipments);
-    const activeEq =
-      equipments.find((e) => e.equipmentCode === scannedEqCode) ||
-      equipments[0];
+  if (activeTab === "M05_PROGRESS") {
+    const projPhotos = photos.filter((p) => p.projectCode === projectCode);
+    const visiblePhotos = isPhotoGalleryExpanded
+      ? projPhotos
+      : projPhotos.slice(0, 3);
 
     return (
       <div className="space-y-6">
-        {/* Equipment Utilization KPI Cards (FR-M04-007) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-teal-700">
-                MODULE 04 • QR EQUIPMENT TRACKING, ALLOCATION & MAINTENANCE
+        {/* Top Header */}
+        <div className="bg-slate-900 border border-slate-800 text-white rounded-xl p-5 shadow-lg flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                MODULE 05 • PROJECT & SUBCON PROGRESS
               </span>
-              <h2 className="text-xl font-bold text-slate-900">
-                On-Site Tools & Equipment Management Dashboard
-              </h2>
-              <p className="text-xs text-slate-500">
-                <strong>FR-M04-007 Formula:</strong>{" "}
-                <code>
-                  Equipment Utilization Rate = Equipment in Use ÷ Total Active
-                  Equipment × 100
-                </code>
-              </p>
+              <span className="text-xs text-slate-400 font-mono">
+                Project: <strong className="text-amber-400">{projectCode}</strong>
+              </span>
             </div>
-            <div className="px-4 py-2 rounded-xl bg-teal-900 text-white text-right">
-              <div className="text-[11px] uppercase tracking-wider text-teal-300">
-                Fleet Utilization Rate
-              </div>
-              <div className="text-2xl font-extrabold">
-                {stats.utilizationRate}%
-              </div>
-            </div>
+            <h2 className="text-xl font-extrabold">Subcontractor Milestones & Physical Progress</h2>
+            <p className="text-slate-400 text-xs mt-0.5">
+              Live tracking of planned vs actual trade package completion and site progress photo documentation.
+            </p>
           </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 text-center text-xs">
-            <div className="p-3 rounded-lg bg-slate-50 border border-slate-200">
-              <div className="text-slate-500">Total Equipment</div>
-              <div className="text-xl font-extrabold text-slate-900">
-                {stats.total}
-              </div>
-            </div>
-            <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-              <div className="text-emerald-700 font-semibold">Available</div>
-              <div className="text-xl font-extrabold text-emerald-900">
-                {stats.available}
-              </div>
-            </div>
-            <div className="p-3 rounded-lg bg-blue-50 border border-blue-200">
-              <div className="text-blue-700 font-semibold">In Use</div>
-              <div className="text-xl font-extrabold text-blue-900">
-                {stats.inUse}
-              </div>
-            </div>
-            <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
-              <div className="text-amber-700 font-semibold">Maintenance</div>
-              <div className="text-xl font-extrabold text-amber-900">
-                {stats.maintenance}
-              </div>
-            </div>
-            <div className="p-3 rounded-lg bg-rose-50 border border-rose-200">
-              <div className="text-rose-700 font-semibold">Damaged</div>
-              <div className="text-xl font-extrabold text-rose-900">
-                {stats.damaged}
-              </div>
-            </div>
-            <div className="p-3 rounded-lg bg-slate-100 border border-slate-300">
-              <div className="text-slate-600 font-semibold">Missing</div>
-              <div className="text-xl font-extrabold text-slate-800">
-                {stats.missing}
-              </div>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1.5 rounded-lg text-xs font-mono font-bold bg-slate-950 border border-slate-700 text-amber-400">
+              Overall: {currentProject.actualCompletion}% / {currentProject.plannedCompletion}% Target
+            </span>
           </div>
         </div>
 
-        {/* QR Code Scanner / Lookup + Equipment Action Console */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* QR Scanner & Equipment Detail Card (FR-M04-002 & FR-M04-003) */}
-          <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-slate-900">
-                QR Code Scanner & Manual Equipment Lookup (TC-010 / TC-011)
-              </h3>
-              <span className="px-2 py-0.5 rounded bg-teal-100 text-teal-800 text-[11px] font-mono font-bold">
-                QR READY
-              </span>
-            </div>
-
-            {/* 1-Click Demo QR Scan Buttons */}
+        {/* Milestone Comparison Visual Chart Section */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
             <div>
-              <div className="text-xs font-semibold text-slate-500 mb-1.5">
-                Simulate Instant Mobile QR Scan or Search Code:
-              </div>
-              <div className="flex flex-wrap gap-1.5 mb-3">
-                {equipments.map((e) => (
-                  <button
-                    key={e.equipmentCode}
-                    onClick={() => {
-                      setScannedEqCode(e.equipmentCode);
-                      setEqFeedback(null);
-                    }}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-mono font-bold border transition-all ${
-                      scannedEqCode === e.equipmentCode
-                        ? "bg-slate-900 text-white border-slate-900"
-                        : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                    }`}
-                  >
-                    ▣ {e.equipmentCode} ({e.status})
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Manual lookup (e.g. EQ-EX-001 or KMT-PC300)..."
-                  value={manualQrInput}
-                  onChange={(e) => setManualQrInput(e.target.value)}
-                  className="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-xs"
-                />
-                <button
-                  onClick={() => {
-                    const found = equipments.find(
-                      (e) =>
-                        e.equipmentCode
-                          .toLowerCase()
-                          .includes(manualQrInput.toLowerCase()) ||
-                        e.name
-                          .toLowerCase()
-                          .includes(manualQrInput.toLowerCase())
-                    );
-                    if (found) setScannedEqCode(found.equipmentCode);
-                  }}
-                  className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-xs font-semibold"
-                >
-                  Lookup
-                </button>
-              </div>
+              <h3 className="font-extrabold text-white text-base">
+                Milestone Progress Overview Chart
+              </h3>
+              <p className="text-xs text-slate-400">
+                Visual comparison of Target Planned vs Actual Verified Physical Completion.
+              </p>
             </div>
-
-            {/* Scanned QR Equipment Card */}
-            <div className="p-4 rounded-xl bg-slate-900 text-white space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <span className="text-[11px] font-mono text-teal-400">
-                    {activeEq.qrCodePayload}
-                  </span>
-                  <h4 className="text-base font-bold mt-0.5">
-                    {activeEq.name} ({activeEq.equipmentCode})
-                  </h4>
-                  <p className="text-xs text-slate-300">
-                    {activeEq.category} • {activeEq.brand} {activeEq.model} •
-                    S/N: {activeEq.serialNumber}
-                  </p>
-                </div>
-                {/* Visual SVG QR representation */}
-                <div className="bg-white p-2 rounded-lg text-slate-900 text-center shrink-0">
-                  <div className="grid grid-cols-4 gap-0.5 w-12 h-12">
-                    {[1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1].map(
-                      (bit, i) => (
-                        <div
-                          key={i}
-                          className={bit ? "bg-slate-900" : "bg-slate-200"}
-                        />
-                      )
-                    )}
-                  </div>
-                  <div className="text-[9px] font-mono font-bold mt-1">
-                    {activeEq.equipmentCode}
-                  </div>
-                </div>
+            <div className="flex items-center gap-4 text-xs font-mono">
+              <div className="flex items-center gap-1.5 text-sky-400">
+                <span className="w-3 h-2 bg-sky-500 rounded-sm inline-block" />
+                <span>Planned</span>
               </div>
-
-              <div className="grid grid-cols-2 gap-2 text-xs bg-slate-800/90 p-3 rounded-lg">
-                <div>
-                  <span className="text-slate-400">Current Project:</span>{" "}
-                  <strong className="text-white">
-                    {activeEq.currentProjectCode}
-                  </strong>
-                </div>
-                <div>
-                  <span className="text-slate-400">Status & Condition:</span>{" "}
-                  <strong className="text-teal-300">
-                    {activeEq.status} ({activeEq.condition})
-                  </strong>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-slate-400">Location:</span>{" "}
-                  <span>{activeEq.currentLocation}</span>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-slate-400">Current Allocation:</span>{" "}
-                  <span>
-                    {activeEq.assignedTo
-                      ? `${activeEq.assignedTo} (Expected Return: ${activeEq.expectedReturn})`
-                      : "Unassigned — Ready for Allocation"}
-                  </span>
-                </div>
+              <div className="flex items-center gap-1.5 text-amber-400">
+                <span className="w-3 h-2 bg-amber-500 rounded-sm inline-block" />
+                <span>Actual</span>
               </div>
             </div>
           </div>
 
-          {/* Equipment Operations & Conflict Prevention (FR-M04-004 to FR-M04-009) */}
-          <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
-              <h3 className="font-bold text-slate-900">
-                Equipment Action Console ({activeEq.equipmentCode})
+          {/* Attractive Visual Bar Comparison */}
+          <div className="space-y-4 pt-2">
+            {projMilestones.map((ms) => {
+              const isBehind = ms.actualProgress < ms.plannedProgress;
+              return (
+                <div key={ms.id} className="space-y-1.5">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="font-bold text-white">
+                      <span className="text-amber-400 font-mono">[{ms.milestoneCode}]</span> {ms.name}{" "}
+                      <span className="text-slate-400 font-normal">({ms.subcontractorName})</span>
+                    </span>
+                    <span className="font-mono">
+                      <strong className="text-sky-400">P: {ms.plannedProgress}%</strong> •{" "}
+                      <strong className={isBehind ? "text-rose-400" : "text-emerald-400"}>
+                        A: {ms.actualProgress}% ({ms.actualProgress - ms.plannedProgress}%)
+                      </strong>
+                    </span>
+                  </div>
+                  <div className="h-5 w-full bg-slate-950 rounded-lg p-0.5 border border-slate-800 flex flex-col justify-center gap-0.5">
+                    {/* Planned Bar */}
+                    <div
+                      className="h-1.5 bg-sky-500/80 rounded-full transition-all"
+                      style={{ width: `${ms.plannedProgress}%` }}
+                    />
+                    {/* Actual Bar */}
+                    <div
+                      className={`h-2 rounded-full transition-all ${
+                        isBehind ? "bg-rose-500" : "bg-amber-500"
+                      }`}
+                      style={{ width: `${ms.actualProgress}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 2-Column Split: Left = Update Milestone with Photo Attachment, Right = Planned vs Actual Milestones */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Column: Update Milestone Section (With Image Attachment Upload) */}
+          <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
+            <div>
+              <span className="text-[10px] font-mono font-bold uppercase text-amber-400">
+                DAILY SITE PROGRESS UPDATE
+              </span>
+              <h3 className="font-extrabold text-white text-base mt-0.5">
+                Update Milestone Progress
               </h3>
-              <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-lg text-[11px]">
-                {(
-                  [
-                    "ALLOCATE",
-                    "RETURN",
-                    "TRANSFER",
-                    "MAINTENANCE",
-                    "DAMAGE",
-                  ] as const
-                ).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => {
-                      setEqActionMode(mode);
-                      setEqFeedback(null);
-                    }}
-                    className={`px-2 py-1 rounded font-semibold ${
-                      eqActionMode === mode
-                        ? "bg-white text-slate-900 shadow-sm"
-                        : "text-slate-600"
-                    }`}
-                  >
-                    {mode}
-                  </button>
-                ))}
-              </div>
+              <p className="text-xs text-slate-400">
+                Record actual completion percentage, work completed, and attach site progress photos.
+              </p>
             </div>
 
-            {eqFeedback && (
-              <div
-                className={`p-3 rounded-lg border text-xs font-semibold ${
-                  eqFeedback.isError
-                    ? "bg-rose-50 border-rose-300 text-rose-900"
-                    : "bg-emerald-50 border-emerald-300 text-emerald-900"
-                }`}
-              >
-                {eqFeedback.msg}
+            {msSuccessMsg && (
+              <div className="p-3 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-xs font-semibold text-emerald-300">
+                {msSuccessMsg}
               </div>
             )}
 
             <div className="space-y-3 text-xs">
-              {eqActionMode === "ALLOCATE" && (
-                <>
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
-                      Assign to Worker / Site Team (FR-M04-004)
-                    </label>
-                    <input
-                      type="text"
-                      value={eqAssignedTeam}
-                      onChange={(e) => setEqAssignedTeam(e.target.value)}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                    />
-                  </div>
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
-                      Expected Return Date
-                    </label>
-                    <input
-                      type="date"
-                      value={eqReturnDate}
-                      onChange={(e) => setEqReturnDate(e.target.value)}
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                    />
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-900">
-                    <strong>TC-022 / BR-012 Conflict Check Demo:</strong> Try
-                    clicking Allocate while <code>{activeEq.equipmentCode}</code>{" "}
-                    is <code>{activeEq.status}</code>—the system automatically
-                    prevents conflicting simultaneous allocations!
-                  </div>
-                </>
-              )}
-
-              {eqActionMode === "RETURN" && (
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Return Condition Verification (FR-M04-005)
-                  </label>
-                  <select
-                    value={eqReturnCondition}
-                    onChange={(e) =>
-                      setEqReturnCondition(
-                        e.target.value as SeedEquipment["condition"]
-                      )
-                    }
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white"
-                  >
-                    <option value="GOOD">GOOD (Set status to AVAILABLE)</option>
-                    <option value="FAIR">FAIR (Set status to AVAILABLE)</option>
-                    <option value="DAMAGED">
-                      DAMAGED (Route to Repair / DAMAGED status)
+              <div>
+                <label className="block font-semibold text-slate-300 mb-1">
+                  Target Milestone
+                </label>
+                <select
+                  value={selectedMsCode}
+                  onChange={(e) => setSelectedMsCode(e.target.value)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                >
+                  {projMilestones.map((m) => (
+                    <option key={m.milestoneCode} value={m.milestoneCode}>
+                      {m.milestoneCode} – {m.name} ({m.actualProgress}%)
                     </option>
-                  </select>
-                </div>
-              )}
-
-              {eqActionMode === "TRANSFER" && (
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">
-                    Destination Project (FR-M04-006)
-                  </label>
-                  <select
-                    value={eqDestProject}
-                    onChange={(e) => setEqDestProject(e.target.value)}
-                    className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white"
-                  >
-                    {projects.map((p) => (
-                      <option key={p.projectCode} value={p.projectCode}>
-                        {p.projectCode} – {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+                  ))}
+                </select>
+              </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Description / Remarks
+                <div className="flex justify-between font-semibold text-slate-300 mb-1">
+                  <span>Actual Completion:</span>
+                  <span className="text-amber-400 font-mono font-bold">{newCompletionPct}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  value={newCompletionPct}
+                  onChange={(e) => setNewCompletionPct(Number(e.target.value))}
+                  className="w-full accent-amber-500 cursor-pointer"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-300 mb-1">
+                  Work Completed Today
+                </label>
+                <textarea
+                  rows={2}
+                  value={workDoneText}
+                  onChange={(e) => setWorkDoneText(e.target.value)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-300 mb-1">
+                  Work Outstanding
                 </label>
                 <input
                   type="text"
-                  value={eqRemarks}
-                  onChange={(e) => setEqRemarks(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
+                  value={workOutText}
+                  onChange={(e) => setWorkOutText(e.target.value)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
                 />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-300 mb-1">
+                  Remarks
+                </label>
+                <input
+                  type="text"
+                  value={msRemarks}
+                  onChange={(e) => setMsRemarks(e.target.value)}
+                  className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none"
+                />
+              </div>
+
+              {/* Photo Attachment Upload / URL Field */}
+              <div>
+                <label className="block font-semibold text-slate-300 mb-1">
+                  Progress Photo Attachment
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={msPhotoUrl}
+                    onChange={(e) => setMsPhotoUrl(e.target.value)}
+                    placeholder="Enter image URL or select photo..."
+                    className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-white focus:outline-none text-xs"
+                  />
+                  {msPhotoUrl && (
+                    <div className="h-9 w-9 rounded-lg border border-slate-700 overflow-hidden bg-slate-950 flex-shrink-0">
+                      <img src={msPhotoUrl} alt="Preview" className="h-full w-full object-cover" />
+                    </div>
+                  )}
+                </div>
               </div>
 
               <button
                 onClick={() => {
-                  const err = onEquipmentAction({
-                    equipmentCode: activeEq.equipmentCode,
-                    actionType: eqActionMode,
-                    assignedTo: eqAssignedTeam,
-                    expectedReturn: eqReturnDate,
-                    returnCondition: eqReturnCondition,
-                    destProjectCode: eqDestProject,
-                    description: eqRemarks,
+                  onUpdateMilestoneProgress({
+                    milestoneCode: selectedMsCode,
+                    actualProgress: newCompletionPct,
+                    workCompleted: workDoneText,
+                    workOutstanding: workOutText,
+                    remarks: msRemarks,
+                    photoUrl: msPhotoUrl,
                   });
-                  if (err) {
-                    setEqFeedback({ isError: true, msg: err });
-                  } else {
-                    setEqFeedback({
-                      isError: false,
-                      msg: `✓ Successfully executed ${eqActionMode} on ${activeEq.equipmentCode}. Audit trail updated.`,
-                    });
-                  }
+                  setMsSuccessMsg(`✓ Milestone ${selectedMsCode} updated to ${newCompletionPct}% with photo.`);
+                  setTimeout(() => setMsSuccessMsg(""), 3500);
                 }}
-                className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg text-xs shadow-sm"
+                className="w-full py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs shadow-md transition-all mt-2"
               >
-                Execute {eqActionMode} Action on {activeEq.equipmentCode}
+                Submit Milestone Update
               </button>
             </div>
-
-            {/* AI Equipment Recommendations (FR-M04-010) */}
-            <div className="pt-2 border-t border-slate-100 space-y-2 text-xs">
-              <div className="font-bold text-teal-800 uppercase tracking-wider text-[11px]">
-                FR-M04-010 • AI Equipment Recommendations
-              </div>
-              <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-slate-700">
-                • <strong>Overdue Return:</strong> 50T Crane{" "}
-                <code>EQ-CR-002</code> is 4 days overdue from BinaTeguh Subcon.
-                <br />• <strong>Maintenance Alert:</strong> 30T Excavator{" "}
-                <code>EQ-EX-001</code> 500-hr hydraulic service overdue since
-                2026-11-10.
-                <br />• <strong>Transfer Opportunity:</strong> Idle 20T
-                Excavator <code>EQ-EX-007</code> at <code>PRJ-BETA</code> can be
-                transferred to <code>PRJ-ALPHA</code>.
-              </div>
-            </div>
           </div>
-        </div>
-      </div>
-    );
-  }
 
-  // =========================================================================
-  // MODULE 05: VISUAL PROJECT, SUBCONTRACTOR & VENDOR PROGRESS MONITORING
-  // =========================================================================
-  if (activeTab === "M05_PROGRESS") {
-    const projUpdates = progressUpdates.filter(
-      (u) => u.projectCode === projectCode
-    );
-    const projPhotos = photos.filter((p) => p.projectCode === projectCode);
-    const scheduleVariance =
-      currentProject.actualCompletion - currentProject.plannedCompletion;
-    const budgetUtilizationPct = Number(
-      ((currentProject.spentRm / currentProject.budgetRm) * 100).toFixed(1)
-    );
-
-    return (
-      <div className="space-y-6">
-        {/* Project Overview & Performance Dashboard (FR-M05-001 & FR-M05-007) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-teal-700">
-                MODULE 05 • SUBCONTRACTOR & PROJECT PROGRESS MONITORING
+          {/* Right Column: Planned vs Actual Milestone Details */}
+          <div className="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-white text-base">
+                Planned vs. Actual Milestones
+              </h3>
+              <span className="text-xs text-slate-400 font-mono">
+                {projMilestones.length} Active Packages
               </span>
-              <h2 className="text-xl font-bold text-slate-900">
-                {currentProject.name} ({currentProject.projectCode})
-              </h2>
-              <p className="text-xs text-slate-500">
-                Location: {currentProject.location} • Project Manager:{" "}
-                <strong>{currentProject.projectManagerName}</strong> • Timeline:{" "}
-                {currentProject.startDate} to {currentProject.plannedEndDate}
-              </p>
             </div>
-            <span
-              className={`px-3 py-1 rounded-full text-xs font-extrabold ${
-                currentProject.status === "ON_TRACK"
-                  ? "bg-emerald-100 text-emerald-800"
-                  : currentProject.status === "AT_RISK"
-                    ? "bg-amber-100 text-amber-800"
-                    : "bg-rose-100 text-rose-800"
-              }`}
-            >
-              STATUS: {currentProject.status}
-            </span>
-          </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-xs">
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-              <div className="text-slate-500">Planned Completion</div>
-              <div className="text-2xl font-extrabold text-slate-900 mt-1">
-                {currentProject.plannedCompletion}%
-              </div>
-            </div>
-            <div className="p-3.5 rounded-xl bg-teal-50 border border-teal-200">
-              <div className="text-teal-800 font-semibold">
-                Actual Completion
-              </div>
-              <div className="text-2xl font-extrabold text-teal-950 mt-1">
-                {currentProject.actualCompletion}%
-              </div>
-            </div>
-            <div
-              className={`p-3.5 rounded-xl border ${
-                scheduleVariance < 0
-                  ? "bg-rose-50 border-rose-200 text-rose-900"
-                  : "bg-emerald-50 border-emerald-200 text-emerald-900"
-              }`}
-            >
-              <div className="font-semibold">Schedule Variance (TC-016)</div>
-              <div className="text-2xl font-extrabold mt-1">
-                {scheduleVariance > 0
-                  ? `+${scheduleVariance}%`
-                  : `${scheduleVariance}%`}
-              </div>
-            </div>
-            <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200">
-              <div className="text-amber-900 font-semibold">
-                Budget Utilization
-              </div>
-              <div className="text-2xl font-extrabold text-amber-950 mt-1">
-                {budgetUtilizationPct}%
-              </div>
-              <div className="text-[11px] text-amber-800">
-                RM {(currentProject.spentRm / 1e6).toFixed(1)}M / RM{" "}
-                {(currentProject.budgetRm / 1e6).toFixed(1)}M
-              </div>
-            </div>
-            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200">
-              <div className="text-slate-500">Equipment Rental Spend</div>
-              <div className="text-xl font-extrabold text-slate-900 mt-1">
-                RM {(currentProject.equipmentRentalRm / 1e6).toFixed(2)}M
-              </div>
-            </div>
-          </div>
-
-          {/* FR-M05-008 Governance Insight Banner */}
-          {budgetUtilizationPct > currentProject.actualCompletion && (
-            <div className="p-4 rounded-xl bg-amber-50 border border-amber-300 text-xs text-amber-950">
-              <strong>
-                ⚠ FR-M05-008 AI Project & Spend Insight (Investigation Flag):
-              </strong>{" "}
-              Budget utilization (<strong>{budgetUtilizationPct}%</strong>) is{" "}
-              <strong>
-                {(budgetUtilizationPct - currentProject.actualCompletion).toFixed(
-                  1
-                )}
-                % higher
-              </strong>{" "}
-              than physical project completion (
-              <strong>{currentProject.actualCompletion}%</strong>). Per business
-              rule <strong>FR-M05-008</strong>, higher spending compared with
-              project completion is{" "}
-              <strong>
-                flagged for commercial/technical investigation
-              </strong>{" "}
-              (checking front-loaded material deposits, variation works, or
-              BinaTeguh Grid C4-C7 rework) rather than automatically classified
-              as material wastage.
-            </div>
-          )}
-        </div>
-
-        {/* Planned vs Actual Milestone & Subcontractor Progress (FR-M05-002 & FR-M05-003) */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-            <h3 className="font-bold text-slate-900">
-              Planned vs. Actual Milestone & Subcontractor Progress (FR-M05-003)
-            </h3>
-
-            <div className="space-y-4">
+            <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
               {projMilestones.map((ms) => {
                 const isDelayed = ms.actualProgress < ms.plannedProgress;
                 const spendPct = Math.round(
@@ -738,233 +436,103 @@ export function EquipmentProgressRiskModules({
                     key={ms.id}
                     className={`p-4 rounded-xl border ${
                       isDelayed
-                        ? "border-rose-200 bg-rose-50/40"
-                        : "border-slate-200 bg-slate-50/50"
+                        ? "border-rose-500/30 bg-rose-500/5"
+                        : "border-slate-800 bg-slate-950/60"
                     } space-y-2.5 text-xs`}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <span className="font-mono font-bold text-slate-500">
+                        <span className="font-mono font-bold text-amber-400">
                           {ms.milestoneCode}
                         </span>{" "}
-                        •{" "}
-                        <strong className="text-sm text-slate-900">
-                          {ms.name}
-                        </strong>
-                        <div className="text-[11px] text-slate-600 mt-0.5">
-                          Subcontractor / Vendor:{" "}
-                          <strong className="text-teal-800">
-                            {ms.subcontractorName} ({ms.subcontractorCode})
-                          </strong>{" "}
-                          • Team: {ms.responsibleTeam}
+                        • <strong className="text-sm text-white">{ms.name}</strong>
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          Subcontractor: <strong className="text-slate-200">{ms.subcontractorName}</strong> ({ms.subcontractorCode})
                         </div>
                       </div>
                       <span
-                        className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] ${
+                        className={`px-2.5 py-0.5 rounded-full font-bold text-[10px] font-mono ${
                           isDelayed
-                            ? "bg-rose-600 text-white"
+                            ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
                             : ms.status === "COMPLETED"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : "bg-teal-100 text-teal-800"
+                              ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                              : "bg-sky-500/20 text-sky-300 border border-sky-500/40"
                         }`}
                       >
-                        {isDelayed
-                          ? `BEHIND SCHEDULE (${ms.actualProgress - ms.plannedProgress}%)`
-                          : ms.status}
+                        {isDelayed ? `BEHIND (${ms.actualProgress - ms.plannedProgress}%)` : ms.status}
                       </span>
                     </div>
 
-                    {/* Dual Progress Bars */}
-                    <div className="space-y-1.5">
-                      <div>
-                        <div className="flex justify-between text-[11px] font-semibold text-slate-600 mb-0.5">
-                          <span>Planned Progress</span>
-                          <span>{ms.plannedProgress}%</span>
-                        </div>
-                        <div className="h-2.5 w-full rounded-full bg-slate-200 overflow-hidden">
-                          <div
-                            className="h-full bg-slate-600 rounded-full"
-                            style={{ width: `${ms.plannedProgress}%` }}
-                          />
-                        </div>
+                    {/* Progress Stats */}
+                    <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                      <div className="bg-slate-900 p-2 rounded-lg border border-slate-800">
+                        <div className="text-[10px] text-slate-400">Target Planned</div>
+                        <div className="font-bold text-sky-400 text-sm font-mono">{ms.plannedProgress}%</div>
                       </div>
-                      <div>
-                        <div className="flex justify-between text-[11px] font-bold text-slate-900 mb-0.5">
-                          <span>Actual Physical Completion</span>
-                          <span>{ms.actualProgress}%</span>
-                        </div>
-                        <div className="h-2.5 w-full rounded-full bg-slate-200 overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${
-                              isDelayed ? "bg-rose-600" : "bg-teal-600"
-                            }`}
-                            style={{ width: `${ms.actualProgress}%` }}
-                          />
+                      <div className="bg-slate-900 p-2 rounded-lg border border-slate-800">
+                        <div className="text-[10px] text-slate-400">Actual Verified</div>
+                        <div className={`font-bold text-sm font-mono ${isDelayed ? "text-rose-400" : "text-amber-400"}`}>
+                          {ms.actualProgress}%
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex justify-between text-[11px] text-slate-500 pt-1">
-                      <span>
-                        Schedule: {ms.plannedStartDate} → {ms.plannedEndDate}
-                      </span>
-                      <span>
-                        Milestone Spend: RM {(ms.actualSpentRm / 1e6).toFixed(1)}
-                        M / RM {(ms.budgetAllocatedRm / 1e6).toFixed(1)}M (
-                        {spendPct}%)
-                      </span>
+                    <div className="flex justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/60">
+                      <span>Timeline: {ms.plannedStartDate} → {ms.plannedEndDate}</span>
+                      <span>Spent: RM {(ms.actualSpentRm / 1e6).toFixed(1)}M / RM {(ms.budgetAllocatedRm / 1e6).toFixed(1)}M ({spendPct}%)</span>
                     </div>
                   </div>
                 );
               })}
             </div>
           </div>
-
-          {/* Submit Daily Progress Update Form (FR-M05-004 & TC-015) */}
-          <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-teal-700">
-                FR-M05-004 & TC-015 • DAILY SITE PROGRESS UPDATE
-              </span>
-              <h3 className="font-bold text-slate-900 text-base">
-                Update Milestone & Subcontractor Progress
-              </h3>
-            </div>
-
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Target Milestone
-                </label>
-                <select
-                  value={selectedMsCode}
-                  onChange={(e) => setSelectedMsCode(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white"
-                >
-                  {projMilestones.map((m) => (
-                    <option key={m.milestoneCode} value={m.milestoneCode}>
-                      {m.milestoneCode} – {m.name} (Current: {m.actualProgress}
-                      %)
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Updated Actual Completion Percentage: {newCompletionPct}%
-                </label>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={newCompletionPct}
-                  onChange={(e) => setNewCompletionPct(Number(e.target.value))}
-                  className="w-full accent-teal-600"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Work Completed Today
-                </label>
-                <textarea
-                  rows={2}
-                  value={workDoneText}
-                  onChange={(e) => setWorkDoneText(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Work Outstanding
-                </label>
-                <input
-                  type="text"
-                  value={workOutText}
-                  onChange={(e) => setWorkOutText(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                />
-              </div>
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Remarks & Supporting Photo URL
-                </label>
-                <input
-                  type="text"
-                  value={msRemarks}
-                  onChange={(e) => setMsRemarks(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 mb-2"
-                />
-                <input
-                  type="text"
-                  value={msPhotoUrl}
-                  onChange={(e) => setMsPhotoUrl(e.target.value)}
-                  placeholder="Supporting Site Photo URL..."
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2"
-                />
-              </div>
-              <button
-                onClick={() =>
-                  onUpdateMilestoneProgress({
-                    milestoneCode: selectedMsCode,
-                    actualProgress: newCompletionPct,
-                    workCompleted: workDoneText,
-                    workOutstanding: workOutText,
-                    remarks: msRemarks,
-                    photoUrl: msPhotoUrl,
-                  })
-                }
-                className="w-full py-2.5 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg text-xs shadow-sm"
-              >
-                Submit Progress Update & Link Site Photo
-              </button>
-            </div>
-          </div>
         </div>
 
-        {/* Construction Progress Photo Gallery (FR-M05-005) */}
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-          <h3 className="font-bold text-slate-900 mb-3">
-            Construction Progress Photo Gallery Linked to Milestones
-            (FR-M05-005)
-          </h3>
+        {/* Construction Progress Photos Section (Show max 3 + View More Toggle) */}
+        <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-extrabold text-white text-base">
+                Construction Progress Photos ({projPhotos.length})
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Site photographs captured and linked to milestone verification.
+              </p>
+            </div>
+            {projPhotos.length > 3 && (
+              <button
+                onClick={() => setIsPhotoGalleryExpanded(!isPhotoGalleryExpanded)}
+                className="px-3 py-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-amber-400 font-bold text-xs border border-slate-700 transition-all"
+              >
+                {isPhotoGalleryExpanded ? "▲ Show 3 Photos" : `▼ View More (${projPhotos.length - 3} More)`}
+              </button>
+            )}
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {projPhotos.map((p) => (
+            {visiblePhotos.map((p) => (
               <div
                 key={p.id}
-                className="rounded-xl border border-slate-200 overflow-hidden bg-slate-50 text-xs"
+                className="rounded-xl border border-slate-800 overflow-hidden bg-slate-950 text-xs flex flex-col justify-between"
               >
-                <img
-                  src={p.photoUrl}
-                  alt={p.description}
-                  className="h-40 w-full object-cover"
-                />
-                <div className="p-3 space-y-1">
-                  <div className="font-bold text-teal-800">
-                    {p.milestoneCode} • {p.milestoneName}
+                <div className="relative h-44 w-full bg-slate-900">
+                  <img
+                    src={p.photoUrl}
+                    alt={p.description}
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute top-2 left-2 bg-slate-950/80 text-amber-400 text-[10px] font-mono px-2 py-0.5 rounded border border-slate-700">
+                    {p.milestoneCode}
                   </div>
-                  <p className="text-slate-700">{p.description}</p>
-                  <div className="text-[11px] text-slate-400">
+                </div>
+                <div className="p-3 space-y-1">
+                  <div className="font-bold text-white text-xs">
+                    {p.milestoneName}
+                  </div>
+                  <p className="text-slate-400 text-[11px]">{p.description}</p>
+                  <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-800">
                     Uploaded by {p.uploadedBy} on {p.uploadDate}
                   </div>
-                </div>
-              </div>
-            ))}
-            {projUpdates.slice(0, 1).map((u) => (
-              <div
-                key={u.id}
-                className="rounded-xl border border-slate-200 p-4 bg-slate-50 text-xs space-y-2"
-              >
-                <div className="font-bold text-slate-900">
-                  Latest Daily Log: {u.milestoneName} ({u.completionPct}%)
-                </div>
-                <p className="text-slate-700">
-                  <strong>Completed:</strong> {u.workCompleted}
-                </p>
-                <p className="text-slate-600">
-                  <strong>Outstanding:</strong> {u.workOutstanding}
-                </p>
-                <div className="text-[11px] text-slate-400">
-                  By {u.updatedBy} • {u.progressDate}
                 </div>
               </div>
             ))}
@@ -975,236 +543,133 @@ export function EquipmentProgressRiskModules({
   }
 
   // =========================================================================
-  // MODULE 06: AI RISK COPILOT & PREDICTIVE SCENARIO SIMULATOR
+  // M06: AI RISK & PREDICTIVE SCENARIO SIMULATOR
   // =========================================================================
   const projRisks = risks.filter((r) => r.projectCode === projectCode);
 
-  const presetQuestions = [
-    "Where can I buy cement near Project Alpha?",
-    "Which vendor offers the lowest price for steel and best reliability?",
-    "Do we have enough tiles and steel for the next two weeks?",
-    "Which equipment is currently available or requires maintenance?",
-    "Which project and subcontractor milestone is behind schedule?",
-    "What are the current critical risks affecting this project?",
-  ];
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       {/* Top Banner */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-xl p-6 shadow-md">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 mb-2">
-              MODULE 06 • EXPLAINABLE AI RISK COPILOT & SCENARIO SIMULATOR
+      <div className="bg-slate-900 border border-slate-800 text-white rounded-xl p-5 shadow-lg flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-400/30">
+              MODULE 06 • PREDICTIVE RISK SIMULATION & COPILOT
             </span>
-            <h2 className="text-2xl font-bold">
-              BuildSmart AI Risk Copilot — {projectCode}
-            </h2>
-            <p className="text-slate-300 text-sm mt-1">
-              Cross-analyzes Live Stock (M02), Worker/Engineer Defect Logs &
-              Vendor Scores (M03), QR Equipment (M04), and Subcontractor
-              Progress (M05) to predict project risks before they halt site
-              work.
-            </p>
+            <span className="text-xs text-slate-400 font-mono">
+              Project: <strong className="text-amber-400">{projectCode}</strong>
+            </span>
           </div>
-          <div className="text-right text-xs bg-white/10 p-3 rounded-xl border border-white/15">
-            <div className="font-bold text-amber-300">
-              BR-016 Risk Formula: Likelihood (1–5) × Impact (1–5)
-            </div>
-            <div className="text-slate-300 mt-0.5">
-              1–4 Low | 5–9 Medium | 10–16 High | 17–25 Critical
-            </div>
-          </div>
+          <h2 className="text-xl font-extrabold text-white">
+            Predictive Operational Risk Simulator
+          </h2>
+          <p className="text-slate-400 text-xs mt-0.5">
+            Non-mutating what-if risk simulations across material supply, delivery delays, and subcontractor milestone timelines.
+          </p>
         </div>
+
+        {/* Floating Copilot Launcher Button */}
+        <button
+          onClick={() => setIsChatOpen(!isChatOpen)}
+          className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg flex items-center gap-2"
+        >
+          <span>🤖</span>
+          <span>{isChatOpen ? "Close AI Copilot Window" : "Open Floating AI Copilot"}</span>
+        </button>
       </div>
 
-      {/* Split View: Left = AI Chat Assistant (FR-M06-001) | Right = What-If Scenario Simulator (FR-M06-007) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* AI Chat Assistant */}
-        <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between space-y-4">
+      {/* Large-Width Predictive Operational Risk Simulation Container */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-4">
           <div>
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-indigo-700">
-                  FR-M06-001 & FR-M06-009 • GROUNDED AI ASSISTANT
-                </span>
-                <h3 className="font-bold text-slate-900">
-                  Ask AI About Stock, Vendors, Equipment or Risks
-                </h3>
-              </div>
-              <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-800 text-[11px] font-semibold">
-                Explainable AI Active
-              </span>
-            </div>
-
-            {/* Preset Questions */}
-            <div className="mb-3">
-              <div className="text-[11px] font-semibold text-slate-500 mb-1.5">
-                One-Click Spec Test Questions (TC-017 / TC-018 / TC-019):
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {presetQuestions.map((q) => (
-                  <button
-                    key={q}
-                    onClick={() => handleAskCopilot(q)}
-                    className="text-left px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-indigo-50 hover:text-indigo-900 text-slate-700 text-[11px] font-medium border border-slate-200 transition-colors"
-                  >
-                    {q}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Chat Messages */}
-            <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1 bg-slate-50 p-3 rounded-xl border border-slate-200">
-              {chatHistory.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className={`p-3 rounded-xl text-xs whitespace-pre-line ${
-                    msg.role === "USER"
-                      ? "bg-indigo-600 text-white ml-8 font-medium"
-                      : "bg-white border border-slate-200 text-slate-800 mr-4 shadow-sm"
-                  }`}
-                >
-                  <div className="font-bold text-[10px] uppercase tracking-wider mb-1 opacity-75">
-                    {msg.role === "USER"
-                      ? `${currentUser.name} (${currentUser.role})`
-                      : "BuildSmart AI Copilot (Grounded in Live DB)"}
-                  </div>
-                  <div>{msg.text}</div>
-                  {msg.sources && msg.sources.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-500">
-                      <strong>Explainable AI Sources (FR-M06-009):</strong>{" "}
-                      {msg.sources.join(" • ")}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Ask anything (e.g., 'Do we have enough steel for the next two weeks?')..."
-              value={chatInput}
-              onChange={(e) => setChatInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAskCopilot(chatInput)}
-              className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-xs"
-            />
-            <button
-              onClick={() => handleAskCopilot(chatInput)}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs"
-            >
-              Ask AI
-            </button>
-          </div>
-        </div>
-
-        {/* Interactive What-If Scenario Simulator (FR-M06-007 & BR-020 / TC-020) */}
-        <div className="lg:col-span-6 bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-teal-700">
-                FR-M06-007 & TC-020 • WHAT-IF SCENARIO SIMULATOR
-              </span>
-              <h3 className="font-bold text-slate-900">
-                Predictive Operational Risk Simulation
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-500 animate-pulse" />
+              <h3 className="font-extrabold text-white text-lg">
+                Interactive What-If Operational Risk Simulator
               </h3>
             </div>
-            <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900 text-[11px] font-bold">
-              BR-020: Non-Mutating Sandbox
-            </span>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Adjust scenario variables below to evaluate potential delays, financial exposure, and risk mitigation strategies.
+            </p>
+          </div>
+          <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+            SANDBOX: NON-MUTATING SIMULATION
+          </span>
+        </div>
+
+        {/* Simulator Controls Grid (Expanded Width) */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs">
+          <div>
+            <label className="block font-semibold text-slate-300 mb-1">
+              Scenario Type
+            </label>
+            <select
+              value={simType}
+              onChange={(e) =>
+                setSimType(e.target.value as SimulationInput["scenarioType"])
+              }
+              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white font-semibold focus:outline-none"
+            >
+              <option value="DELIVERY_DELAY">1. Material Delivery Delay (+N Days)</option>
+              <option value="PRICE_INCREASE">2. Material Unit Price Surge (+X%)</option>
+              <option value="EQUIPMENT_BREAKDOWN">3. Critical Plant Breakdown</option>
+              <option value="CONSUMPTION_SURGE">4. Site Consumption Surge (+X%)</option>
+            </select>
           </div>
 
-          {/* Scenario Controls */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Scenario Type (FR-M06-007)
-              </label>
-              <select
-                value={simType}
-                onChange={(e) =>
-                  setSimType(
-                    e.target.value as SimulationInput["scenarioType"]
-                  )
-                }
-                className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 bg-white font-semibold"
-              >
-                <option value="DELIVERY_DELAY">
-                  1. Material Delivery Delayed (+N Days)
-                </option>
-                <option value="PRICE_INCREASE">
-                  2. Material Unit Price Surge (+X%)
-                </option>
-                <option value="EQUIPMENT_BREAKDOWN">
-                  3. Critical Equipment Breakdown
-                </option>
-                <option value="CONSUMPTION_SURGE">
-                  4. Site Consumption Surge (+X%)
-                </option>
-              </select>
-            </div>
-
+          <div>
+            <label className="block font-semibold text-slate-300 mb-1">
+              {simType === "EQUIPMENT_BREAKDOWN" ? "Target Plant" : "Target Material"}
+            </label>
             {simType === "EQUIPMENT_BREAKDOWN" ? (
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Equipment Item
-                </label>
-                <select
-                  value={simEqCode}
-                  onChange={(e) => setSimEqCode(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 bg-white"
-                >
-                  {equipments.map((e) => (
-                    <option key={e.equipmentCode} value={e.equipmentCode}>
-                      {e.equipmentCode} – {e.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <select
+                value={simEqCode}
+                onChange={(e) => setSimEqCode(e.target.value)}
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white focus:outline-none"
+              >
+                {equipments.map((e) => (
+                  <option key={e.equipmentCode} value={e.equipmentCode}>
+                    {e.equipmentCode} – {e.name}
+                  </option>
+                ))}
+              </select>
             ) : (
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Target Material
-                </label>
-                <select
-                  value={simMatCode}
-                  onChange={(e) => setSimMatCode(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 bg-white"
-                >
-                  {materials.map((m) => (
-                    <option key={m.materialCode} value={m.materialCode}>
-                      {m.materialCode} – {m.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <select
+                value={simMatCode}
+                onChange={(e) => setSimMatCode(e.target.value)}
+                className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white focus:outline-none"
+              >
+                {materials.map((m) => (
+                  <option key={m.materialCode} value={m.materialCode}>
+                    {m.materialCode} – {m.name}
+                  </option>
+                ))}
+              </select>
             )}
+          </div>
 
-            {simType === "DELIVERY_DELAY" ||
-            simType === "EQUIPMENT_BREAKDOWN" ? (
-              <div className="sm:col-span-2">
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Simulated Delay / Breakdown Duration:{" "}
-                  <strong>+{simDelayDays} Days</strong>
-                </label>
+          <div>
+            {simType === "DELIVERY_DELAY" || simType === "EQUIPMENT_BREAKDOWN" ? (
+              <div>
+                <div className="flex justify-between font-semibold text-slate-300 mb-1">
+                  <span>Simulated Delay:</span>
+                  <span className="text-amber-400 font-mono font-bold">+{simDelayDays} Days</span>
+                </div>
                 <input
                   type="range"
                   min={1}
-                  max={10}
+                  max={14}
                   value={simDelayDays}
                   onChange={(e) => setSimDelayDays(Number(e.target.value))}
-                  className="w-full accent-indigo-600"
+                  className="w-full accent-amber-500 cursor-pointer mt-1"
                 />
               </div>
             ) : (
-              <div className="sm:col-span-2">
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Simulated Percentage Increase:{" "}
-                  <strong>+{simPctChange}%</strong>
-                </label>
+              <div>
+                <div className="flex justify-between font-semibold text-slate-300 mb-1">
+                  <span>Simulated Percentage Surge:</span>
+                  <span className="text-amber-400 font-mono font-bold">+{simPctChange}%</span>
+                </div>
                 <input
                   type="range"
                   min={5}
@@ -1212,137 +677,113 @@ export function EquipmentProgressRiskModules({
                   step={5}
                   value={simPctChange}
                   onChange={(e) => setSimPctChange(Number(e.target.value))}
-                  className="w-full accent-indigo-600"
+                  className="w-full accent-amber-500 cursor-pointer mt-1"
                 />
               </div>
             )}
           </div>
+        </div>
 
-          {/* Simulation Output Card */}
-          <div className="p-4 rounded-xl border-2 border-indigo-600/30 bg-indigo-50/30 space-y-3 text-xs">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h4 className="font-bold text-slate-900 text-sm">
-                {activeSimResult.scenarioTitle}
-              </h4>
-              <span
-                className={`px-2.5 py-0.5 rounded-full font-extrabold ${
-                  activeSimResult.newRiskLevel === "CRITICAL"
-                    ? "bg-rose-600 text-white"
-                    : activeSimResult.newRiskLevel === "HIGH"
-                      ? "bg-rose-100 text-rose-800"
-                      : "bg-amber-100 text-amber-800"
-                }`}
-              >
-                SIMULATED RISK: {activeSimResult.newRiskScore}/25 (
-                {activeSimResult.newRiskLevel})
-              </span>
-            </div>
+        {/* Large Prominent Simulation Output Card */}
+        <div className="p-5 rounded-xl border border-indigo-500/40 bg-indigo-950/20 space-y-4 text-xs">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <h4 className="font-extrabold text-white text-base">
+              {activeSimResult.scenarioTitle}
+            </h4>
+            <span
+              className={`px-3 py-1 rounded-full font-extrabold text-xs font-mono ${
+                activeSimResult.newRiskLevel === "CRITICAL"
+                  ? "bg-rose-600 text-white shadow-md shadow-rose-600/30"
+                  : activeSimResult.newRiskLevel === "HIGH"
+                    ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                    : "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+              }`}
+            >
+              PREDICTED RISK: {activeSimResult.newRiskScore}/25 ({activeSimResult.newRiskLevel})
+            </span>
+          </div>
 
-            <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="p-2.5 rounded-lg bg-white border border-slate-200">
-                <div className="text-[11px] text-slate-500">
-                  Shortage / Outage Gap
-                </div>
-                <div className="text-base font-extrabold text-rose-700">
-                  {activeSimResult.shortageGapDays} days
-                </div>
-              </div>
-              <div className="p-2.5 rounded-lg bg-white border border-slate-200">
-                <div className="text-[11px] text-slate-500">
-                  Milestone Delay Impact
-                </div>
-                <div className="text-base font-extrabold text-amber-700">
-                  +{activeSimResult.estimatedScheduleDelayDays} days
-                </div>
-              </div>
-              <div className="p-2.5 rounded-lg bg-white border border-slate-200">
-                <div className="text-[11px] text-slate-500">
-                  Cost Exposure (SIMULATED)
-                </div>
-                <div className="text-base font-extrabold text-slate-900">
-                  RM{" "}
-                  {activeSimResult.estimatedFinancialImpactRm.toLocaleString()}
-                </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+            <div className="p-3.5 rounded-lg bg-slate-950 border border-slate-800">
+              <div className="text-[11px] text-slate-400">Stock Outage Gap</div>
+              <div className="text-xl font-black font-mono text-rose-400 mt-1">
+                {activeSimResult.shortageGapDays} Days
               </div>
             </div>
-
-            <div className="text-slate-700 space-y-1">
-              <div>
-                <strong>Baseline Truth:</strong>{" "}
-                {activeSimResult.baselineSummary}
-              </div>
-              <div>
-                <strong>Predicted Impact:</strong>{" "}
-                {activeSimResult.simulatedImpactSummary}
+            <div className="p-3.5 rounded-lg bg-slate-950 border border-slate-800">
+              <div className="text-[11px] text-slate-400">Milestone Schedule Delay</div>
+              <div className="text-xl font-black font-mono text-amber-400 mt-1">
+                +{activeSimResult.estimatedScheduleDelayDays} Days
               </div>
             </div>
-
-            <div className="p-3 rounded-lg bg-white border border-indigo-200 space-y-1">
-              <div className="font-bold text-indigo-900">
-                AI Mitigation Recommendations:
+            <div className="p-3.5 rounded-lg bg-slate-950 border border-slate-800">
+              <div className="text-[11px] text-slate-400">Estimated Cost Exposure</div>
+              <div className="text-xl font-black font-mono text-white mt-1">
+                RM {activeSimResult.estimatedFinancialImpactRm.toLocaleString()}
               </div>
-              <ul className="list-disc pl-4 space-y-1 text-slate-700">
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            <div className="space-y-2 bg-slate-950 p-3.5 rounded-lg border border-slate-800">
+              <div className="font-bold text-slate-200">Baseline vs Predicted Impact:</div>
+              <p className="text-slate-400">
+                <strong className="text-slate-300">Baseline:</strong> {activeSimResult.baselineSummary}
+              </p>
+              <p className="text-slate-400">
+                <strong className="text-slate-300">Impact:</strong> {activeSimResult.simulatedImpactSummary}
+              </p>
+            </div>
+
+            <div className="space-y-2 bg-slate-950 p-3.5 rounded-lg border border-slate-800">
+              <div className="font-bold text-indigo-300">AI Mitigation Recommendations:</div>
+              <ul className="list-disc pl-4 space-y-1 text-slate-300">
                 {activeSimResult.mitigationRecommendations.map((rec, i) => (
                   <li key={i}>{rec}</li>
                 ))}
               </ul>
             </div>
-
-            <div className="text-[10px] text-slate-500">
-              <strong>Explainable Sources (FR-M06-009):</strong>{" "}
-              {activeSimResult.explainableDataSources.join(" • ")}
-            </div>
           </div>
         </div>
       </div>
 
-      {/* Active Risk Register & Action Tracking (FR-M06-002 to FR-M06-008) */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-bold text-slate-900">
-              Cross-Module Active Risk Register & Action Tracking —{" "}
-              {projectCode} ({projRisks.length})
-            </h3>
-            <p className="text-xs text-slate-500">
-              Automatically identifies Material, Vendor, Equipment, and Project
-              schedule risks across Modules 01–05.
-            </p>
-          </div>
+      {/* Active Risk Register Table */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-extrabold text-white text-base">
+            Active Risk Register — {projectCode} ({projRisks.length})
+          </h3>
+          <span className="text-xs font-mono text-slate-400">
+            Formulas: Likelihood (1–5) × Impact (1–5)
+          </span>
         </div>
 
         <div className="space-y-3">
           {projRisks.map((r) => (
             <div
               key={r.id}
-              className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 space-y-2 text-xs"
+              className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 space-y-2 text-xs"
             >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono font-bold text-slate-700">
-                    {r.riskCode}
-                  </span>
+                  <span className="font-mono font-bold text-amber-400">{r.riskCode}</span>
                   <span
-                    className={`px-2.5 py-0.5 rounded-full font-extrabold ${
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold ${
                       r.riskLevel === "CRITICAL"
                         ? "bg-rose-600 text-white"
                         : r.riskLevel === "HIGH"
-                          ? "bg-rose-100 text-rose-800"
-                          : r.riskLevel === "MEDIUM"
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-slate-200 text-slate-800"
+                          ? "bg-rose-500/20 text-rose-300"
+                          : "bg-amber-500/20 text-amber-300"
                     }`}
                   >
-                    {r.riskLevel} (Score {r.riskScore}/25 = L{r.likelihood}×I
-                    {r.impact})
+                    {r.riskLevel} (Score {r.riskScore}/25)
                   </span>
-                  <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold">
-                    {r.category} RISK
+                  <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">
+                    {r.category}
                   </span>
                 </div>
-
                 <div className="flex items-center gap-2">
-                  <span className="text-slate-500">Owner: {r.riskOwner}</span>
+                  <span className="text-slate-400">Owner: {r.riskOwner}</span>
                   <select
                     value={r.status}
                     onChange={(e) =>
@@ -1352,7 +793,7 @@ export function EquipmentProgressRiskModules({
                         riskOwner: r.riskOwner,
                       })
                     }
-                    className="rounded border border-slate-300 px-2 py-1 font-bold bg-white"
+                    className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white"
                   >
                     <option value="OPEN">OPEN</option>
                     <option value="ACKNOWLEDGED">ACKNOWLEDGED</option>
@@ -1363,20 +804,94 @@ export function EquipmentProgressRiskModules({
                 </div>
               </div>
 
-              <div className="text-sm font-bold text-slate-900">{r.title}</div>
-              <p className="text-slate-700">{r.description}</p>
-              <div className="p-2.5 rounded-lg bg-white border border-slate-200 text-teal-900">
-                <strong>AI Recommended Corrective Action:</strong>{" "}
-                {r.recommendedAction}
-              </div>
-              <div className="text-[11px] text-slate-500">
-                <strong>Explainable AI Source Data (FR-M06-009):</strong>{" "}
-                {r.sourceData} • Identified: {r.identifiedDate}
+              <div className="font-bold text-white text-sm">{r.title}</div>
+              <p className="text-slate-400">{r.description}</p>
+              <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300">
+                <strong className="text-amber-400">Recommended Action:</strong> {r.recommendedAction}
               </div>
             </div>
           ))}
         </div>
       </div>
+
+      {/* Floating AI Copilot Chat Window (Bottom-Right) */}
+      {isChatOpen && (
+        <div className="fixed bottom-6 right-6 w-[380px] sm:w-[440px] max-h-[580px] bg-slate-900 border-2 border-indigo-500/60 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden animate-fadeIn">
+          {/* Header */}
+          <div className="bg-indigo-950 px-4 py-3 border-b border-indigo-500/40 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="h-3 w-3 rounded-full bg-emerald-400 animate-pulse" />
+              <h4 className="font-bold text-white text-sm">
+                BuildSmart AI Copilot
+              </h4>
+            </div>
+            <button
+              onClick={() => setIsChatOpen(false)}
+              className="text-slate-400 hover:text-white font-bold text-sm"
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* Quick Presets */}
+          <div className="p-2 bg-slate-950 border-b border-slate-800">
+            <div className="text-[10px] font-mono text-slate-400 mb-1">Quick Questions:</div>
+            <div className="flex flex-wrap gap-1">
+              {presetQuestions.map((q) => (
+                <button
+                  key={q}
+                  onClick={() => handleAskCopilot(q)}
+                  className="text-left text-[10px] bg-slate-900 hover:bg-indigo-900/60 text-slate-300 hover:text-white px-2 py-0.5 rounded border border-slate-800 truncate max-w-[200px]"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Chat Messages Body */}
+          <div className="flex-1 p-3 space-y-2.5 overflow-y-auto max-h-[320px] bg-slate-950/90 text-xs">
+            {chatHistory.map((msg, idx) => (
+              <div
+                key={idx}
+                className={`p-3 rounded-xl whitespace-pre-line ${
+                  msg.role === "USER"
+                    ? "bg-indigo-600 text-white ml-8 font-medium"
+                    : "bg-slate-900 border border-slate-800 text-slate-200 mr-4 shadow"
+                }`}
+              >
+                <div className="font-bold text-[10px] text-slate-400 uppercase mb-1">
+                  {msg.role === "USER" ? currentUser.name : "AI Risk Copilot"}
+                </div>
+                <div>{msg.text}</div>
+                {msg.sources && msg.sources.length > 0 && (
+                  <div className="mt-1.5 pt-1.5 border-t border-slate-800 text-[10px] text-slate-400">
+                    Sources: {msg.sources.join(" • ")}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Input Footer */}
+          <div className="p-3 bg-slate-900 border-t border-slate-800 flex gap-2">
+            <input
+              type="text"
+              placeholder="Ask AI Copilot about site risks..."
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAskCopilot(chatInput)}
+              className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none"
+            />
+            <button
+              onClick={() => handleAskCopilot(chatInput)}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs"
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

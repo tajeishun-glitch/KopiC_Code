@@ -35,13 +35,13 @@ import {
 } from "@/lib/seed-data";
 import {
   computeInventoryMetrics,
-  computeEquipmentStats,
   calculateVendorScore,
   getRolePermissions,
 } from "@/lib/business-engine";
 import { ScannerAndVendorModules } from "@/components/ScannerAndVendorModules";
 import { InventoryAndQualityModules } from "@/components/InventoryAndQualityModules";
 import { EquipmentProgressRiskModules } from "@/components/EquipmentProgressRiskModules";
+import { DashboardCharts } from "@/components/DashboardCharts";
 
 type NavTab =
   | "DASHBOARD"
@@ -54,13 +54,23 @@ type NavTab =
   | "M06_RISK_COPILOT"
   | "NOTIFICATIONS_AUDIT";
 
+type RegionFilter =
+  | "ALL"
+  | "Malaysia"
+  | "Australia"
+  | "Singapore"
+  | "United Kingdom"
+  | "Taiwan";
+
 export default function BuildSmartAIApp() {
-  // Core Reactive Application State (Initialized from Canonical Seed Data)
+  // Core Reactive Application State
   const [users] = useState<SeedUser[]>(INITIAL_USERS);
   const [currentUser, setCurrentUser] = useState<SeedUser>(INITIAL_USERS[0]); // Default: Project Manager
+  const [selectedRegion, setSelectedRegion] = useState<RegionFilter>("ALL");
   const [selectedProjectCode, setSelectedProjectCode] =
     useState<string>("PRJ-ALPHA");
   const [activeTab, setActiveTab] = useState<NavTab>("DASHBOARD");
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
 
   const [projects, setProjects] = useState<SeedProject[]>(INITIAL_PROJECTS);
   const [materials] = useState<SeedMaterial[]>(INITIAL_MATERIALS);
@@ -126,7 +136,25 @@ export default function BuildSmartAIApp() {
     setAuditLogs(JSON.parse(JSON.stringify(INITIAL_AUDIT_LOGS)));
   };
 
-  // RBAC Check (BR-001 & TC-021): Users can only access projects assigned to them
+  // Region Filter Logic
+  const filteredProjects =
+    selectedRegion === "ALL"
+      ? projects
+      : projects.filter((p) => p.region === selectedRegion);
+
+  const handleRegionChange = (region: RegionFilter) => {
+    setSelectedRegion(region);
+    const validInRegion =
+      region === "ALL" ? projects : projects.filter((p) => p.region === region);
+    if (
+      validInRegion.length > 0 &&
+      !validInRegion.some((p) => p.projectCode === selectedProjectCode)
+    ) {
+      setSelectedProjectCode(validInRegion[0].projectCode);
+    }
+  };
+
+  // RBAC Check (BR-001 & TC-021)
   const isAuthorizedForProject =
     currentUser.assignedProjectCodes.includes(selectedProjectCode);
   const perms = getRolePermissions(currentUser.role);
@@ -149,6 +177,11 @@ export default function BuildSmartAIApp() {
       n.targetRoles.includes(currentUser.role)
   );
   const unreadCount = projNotifications.filter((n) => !n.isRead).length;
+
+  // Top 5 Prioritized Critical/High Risks for Dashboard Display
+  const top5DashboardRisks = [...projRisks]
+    .sort((a, b) => b.riskScore - a.riskScore)
+    .slice(0, 5);
 
   // Handlers for M02 Inventory
   const handleRecordConsumption = ({
@@ -300,6 +333,21 @@ export default function BuildSmartAIApp() {
     quantity: number;
     remarks: string;
   }) => {
+    const srcInv = inventory.find(
+      (i) =>
+        i.projectCode === selectedProjectCode &&
+        i.materialCode === materialCode
+    );
+    if (!srcInv) return;
+
+    const available = srcInv.currentStock - srcInv.reservedStock;
+    if (quantity > available) {
+      alert(
+        `BR-011 Violation: Transfer quantity (${quantity}) exceeds available surplus (${available}).`
+      );
+      return;
+    }
+
     setInventory((prev) =>
       prev.map((inv) => {
         if (
@@ -308,7 +356,7 @@ export default function BuildSmartAIApp() {
         ) {
           return {
             ...inv,
-            currentStock: Math.max(0, inv.currentStock - quantity),
+            currentStock: inv.currentStock - quantity,
             lastUpdated: nowTimestamp(),
           };
         }
@@ -335,11 +383,11 @@ export default function BuildSmartAIApp() {
         materialCode,
         transactionType: "TRANSFER_OUT",
         quantity,
-        workActivity: `Inter-Project Transfer to ${destProjectCode}`,
+        destProjectCode,
         recordedBy: currentUser.name,
         recordedByRole: currentUser.role,
         verificationStatus: "VERIFIED",
-        remarks,
+        remarks: `Cross-project surplus transfer to ${destProjectCode}. ${remarks}`,
         transactionDate: nowTimestamp(),
       },
       ...prev,
@@ -347,14 +395,14 @@ export default function BuildSmartAIApp() {
 
     pushAudit({
       module: "M02 - Smart Live Inventory",
-      action: "INTER_PROJECT_TRANSFER",
+      action: "TRANSFER_MATERIAL_SURPLUS",
       recordId: txnCode,
       previousValue: `${selectedProjectCode} -> ${destProjectCode}`,
-      newValue: `Transferred ${quantity} ${materialCode}`,
+      newValue: `Transferred ${quantity} units of ${materialCode}`,
     });
   };
 
-  // Handlers for M03 Quality & Worker Defect Reflection
+  // Handlers for M03 Quality & Defects
   const handleReportDefect = (payload: {
     materialCode: string;
     vendorCode: string;
@@ -365,8 +413,8 @@ export default function BuildSmartAIApp() {
     description: string;
     correctiveActionText: string;
   }) => {
-    const defCode = `DEF-2026-${String(defects.length + 101).padStart(3, "0")}`;
-    const newDef: SeedDefectRecord = {
+    const defCode = `DEF-2026-${String(defects.length + 106).padStart(3, "0")}`;
+    const newDefect: SeedDefectRecord = {
       id: `def-${Date.now()}`,
       defectCode: defCode,
       projectCode: selectedProjectCode,
@@ -385,15 +433,18 @@ export default function BuildSmartAIApp() {
         {
           id: `ca-${Date.now()}`,
           actionDescription: payload.correctiveActionText,
-          responsibleParty: currentUser.name,
-          targetDate: "2026-11-19",
+          responsibleParty: `Vendor ${payload.vendorCode} QA Team`,
+          targetDate: new Date(Date.now() + 3 * 86400000)
+            .toISOString()
+            .slice(0, 10),
           status: "OPEN",
         },
       ],
     };
-    setDefects((prev) => [newDef, ...prev]);
 
-    // Recalculate Vendor Performance Score Live!
+    setDefects((prev) => [newDefect, ...prev]);
+
+    // Recalculate Vendor Score per BR-003 & BR-007
     setVendors((prev) =>
       prev.map((v) => {
         if (v.vendorCode !== payload.vendorCode) return v;
@@ -480,7 +531,7 @@ export default function BuildSmartAIApp() {
       target.status !== "AVAILABLE" &&
       target.status !== "RESERVED"
     ) {
-      return `BR-012 & TC-022 Conflict Prevented: ${target.equipmentCode} is currently ${target.status} (${target.assignedTo || target.currentLocation}). Cannot create conflicting active allocation!`;
+      return `BR-012 Conflict: ${target.equipmentCode} is currently ${target.status} (${target.assignedTo || target.currentLocation}). Cannot create conflicting active allocation!`;
     }
 
     if (payload.actionType === "TRANSFER" && target.status === "IN_USE") {
@@ -671,84 +722,137 @@ export default function BuildSmartAIApp() {
     });
   };
 
-  const navItems: { id: NavTab; label: string; badge?: number }[] = [
-    { id: "DASHBOARD", label: "1. Dashboard" },
-    { id: "M01_SCANNER", label: "2. M01: AI Material Scanner" },
-    { id: "M01_VENDOR", label: "3. M01: Vendor Finder" },
-    { id: "M02_INVENTORY", label: "4. M02: Live Stock Inventory" },
-    { id: "M03_QUALITY", label: "5. M03: Defect Log & Vendor Score" },
-    { id: "M04_EQUIPMENT", label: "6. M04: Tools & Equipment (QR)" },
-    { id: "M05_PROGRESS", label: "7. M05: Project & Subcon Progress" },
+  // Categorized Sidebar Navigation Items (Construction Engineering Theme)
+  const navSections = [
     {
-      id: "M06_RISK_COPILOT",
-      label: "8. M06: AI Risk Copilot",
-      badge: projRisks.filter((r) => r.riskLevel === "CRITICAL").length,
+      group: "COMMAND & OVERVIEW",
+      items: [
+        { id: "DASHBOARD" as NavTab, label: "Command Dashboard", icon: "📊", badge: undefined },
+        { id: "NOTIFICATIONS_AUDIT" as NavTab, label: "Alerts & Audit Trail", icon: "🔔", badge: unreadCount },
+      ],
     },
     {
-      id: "NOTIFICATIONS_AUDIT",
-      label: "9. Alerts & Audit Trail",
-      badge: unreadCount,
+      group: "PROCUREMENT & YARD",
+      items: [
+        { id: "M01_SCANNER" as NavTab, label: "M02: AI Material Scanner", icon: "📷", badge: undefined },
+        { id: "M01_VENDOR" as NavTab, label: "M03: Vendor Finder", icon: "🏢", badge: undefined },
+        {
+          id: "M02_INVENTORY" as NavTab,
+          label: "M04: Live Stock Inventory",
+          icon: "📦",
+          badge: projInventory.filter((i) => computeInventoryMetrics(i).isBelowReorderPoint).length,
+        },
+      ],
+    },
+    {
+      group: "QUALITY & DEFECTS",
+      items: [
+        {
+          id: "M03_QUALITY" as NavTab,
+          label: "M05: Defect Log & Vendor Score",
+          icon: "🛡️",
+          badge: projDefects.filter((d) => d.status !== "RESOLVED" && d.status !== "CLOSED").length,
+        },
+      ],
+    },
+    {
+      group: "PROGRESS & RISK",
+      items: [
+        { id: "M05_PROGRESS" as NavTab, label: "M05: Project & Subcon", icon: "📈", badge: undefined },
+        {
+          id: "M06_RISK_COPILOT" as NavTab,
+          label: "M06: AI Risk & Copilot",
+          icon: "🤖",
+          badge: projRisks.filter((r) => r.riskLevel === "CRITICAL").length,
+        },
+      ],
     },
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100">
+    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100 font-sans">
       {/* Top Global Command Header */}
-      <header className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-30 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-          {/* Brand Logo */}
+      <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 shadow-xl">
+        <div className="w-full px-4 py-2.5 flex flex-wrap items-center justify-between gap-3">
+          {/* Brand & Sidebar Toggle */}
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-rose-600 to-teal-500 flex items-center justify-center font-black text-lg shadow">
-              BS
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-extrabold text-lg tracking-tight">
-                  BuildSmart AI
-                </h1>
-                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-400/30">
-                  SIMULATED DEMO DATA (BR-018)
-                </span>
+            <button
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 font-mono text-xs font-bold transition-all"
+              title="Toggle Navigation Sidebar"
+            >
+              {isSidebarOpen ? "◀ HIDE" : "▶ MENU"}
+            </button>
+
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center font-black text-slate-950 text-base shadow-md border border-amber-400/40">
+                BS
               </div>
-              <p className="text-xs text-slate-400">
-                Gamuda Berhad • Site Intelligence, Live Stock, Vendor Defect
-                Evaluation & AI Risk Copilot
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="font-extrabold text-base tracking-tight text-white flex items-center gap-1.5">
+                    BuildSmart <span className="text-amber-400 font-mono font-black">AI</span>
+                  </h1>
+                  <span className="hidden sm:inline px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30">
+                    CONSTRUCTION INTELLIGENCE
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-400 hidden md:block">
+                  Gamuda Engineering • Live Stock, Vendor Scoring & Predictive Risk Copilot
+                </p>
+              </div>
             </div>
           </div>
 
-          {/* Role & Project Switcher */}
-          <div className="flex flex-wrap items-center gap-2.5 text-xs">
-            {/* Project Selector */}
-            <div className="bg-slate-800 px-2.5 py-1.5 rounded-lg border border-slate-700 flex items-center gap-2">
-              <span className="text-slate-400 font-medium">Project:</span>
+          {/* Controls: Region Filter, Project Selector, Role Switcher & Reset */}
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            {/* REGION FILTER (International & Local Projects) */}
+            <div className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-amber-500/40 flex items-center gap-1.5 shadow-inner">
+              <span className="text-amber-400 font-mono font-bold text-[11px]">🌍 REGION:</span>
+              <select
+                value={selectedRegion}
+                onChange={(e) => handleRegionChange(e.target.value as RegionFilter)}
+                className="bg-transparent text-white font-bold focus:outline-none cursor-pointer"
+              >
+                <option value="ALL" className="bg-slate-900 text-white">🌐 All Regions ({projects.length})</option>
+                <option value="Malaysia" className="bg-slate-900 text-white">🇲🇾 Malaysia (3)</option>
+                <option value="Australia" className="bg-slate-900 text-white">🇦🇺 Australia (1)</option>
+                <option value="Singapore" className="bg-slate-900 text-white">🇸🇬 Singapore (1)</option>
+                <option value="United Kingdom" className="bg-slate-900 text-white">🇬🇧 United Kingdom (1)</option>
+                <option value="Taiwan" className="bg-slate-900 text-white">🇹🇼 Taiwan (1)</option>
+              </select>
+            </div>
+
+            {/* PROJECT SELECTOR */}
+            <div className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1.5 shadow-inner">
+              <span className="text-slate-400 font-mono font-medium text-[11px]">PROJECT:</span>
               <select
                 value={selectedProjectCode}
                 onChange={(e) => setSelectedProjectCode(e.target.value)}
-                className="bg-transparent text-white font-bold focus:outline-none"
+                className="bg-transparent text-amber-400 font-bold focus:outline-none max-w-[200px] sm:max-w-[260px] truncate cursor-pointer"
               >
-                {projects.map((p) => (
+                {filteredProjects.map((p) => (
                   <option
                     key={p.projectCode}
                     value={p.projectCode}
                     className="bg-slate-900 text-white"
                   >
-                    {p.projectCode} — {p.name.split("–")[1] || p.name}
+                    [{p.projectCode}] {p.name.split("–")[1] || p.name}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Active Role Switcher (PM, Engineer, Supervisor, Worker) */}
-            <div className="bg-slate-800 px-2.5 py-1.5 rounded-lg border border-teal-500/40 flex items-center gap-2">
-              <span className="text-teal-300 font-medium">Role:</span>
+            {/* ROLE SWITCHER */}
+            <div className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-sky-500/40 flex items-center gap-1.5 shadow-inner">
+              <span className="text-sky-400 font-mono font-medium text-[11px]">ROLE:</span>
               <select
                 value={currentUser.id}
                 onChange={(e) => {
                   const found = users.find((u) => u.id === e.target.value);
                   if (found) setCurrentUser(found);
                 }}
-                className="bg-transparent text-white font-bold focus:outline-none"
+                className="bg-transparent text-sky-200 font-bold focus:outline-none cursor-pointer"
               >
                 {users.map((u) => (
                   <option
@@ -762,581 +866,559 @@ export default function BuildSmartAIApp() {
               </select>
             </div>
 
+            {/* RESET DEMO BUTTON */}
             <button
               onClick={handleResetDemo}
-              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 font-semibold transition-colors"
-              title="Reset all demo data to initial state for stage presentation"
+              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-amber-400 font-mono font-bold text-xs transition-colors flex items-center gap-1"
+              title="Reset all demo data to initial state for live pitch"
             >
-              ↺ Reset Demo
+              ↺ Reset
             </button>
-          </div>
-        </div>
-
-        {/* Navigation Bar */}
-        <div className="bg-slate-950/80 border-t border-slate-800">
-          <div className="max-w-7xl mx-auto px-4 flex items-center gap-1 overflow-x-auto py-1.5">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap flex items-center gap-1.5 transition-all ${
-                  activeTab === item.id
-                    ? "bg-teal-600 text-white shadow-sm"
-                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                }`}
-              >
-                <span>{item.label}</span>
-                {item.badge !== undefined && item.badge > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-extrabold bg-rose-600 text-white">
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            ))}
           </div>
         </div>
       </header>
 
-      {/* Main Content Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
-        {/* RBAC Project Authorization Gate (BR-001 & TC-021) */}
-        {!isAuthorizedForProject ? (
-          <div className="bg-white rounded-2xl border-2 border-rose-300 p-8 text-center max-w-xl mx-auto my-8 shadow-md space-y-4">
-            <div className="inline-flex h-14 w-14 rounded-full bg-rose-100 text-rose-700 items-center justify-center text-2xl font-bold">
-              🔒
-            </div>
-            <span className="block text-xs font-mono font-bold uppercase tracking-wider text-rose-600">
-              BR-001 & TEST SCENARIO TC-021 VERIFIED
-            </span>
-            <h2 className="text-xl font-extrabold text-slate-900">
-              Access Denied to Unauthorized Project ({selectedProjectCode})
-            </h2>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              User <strong>{currentUser.name}</strong> (Role:{" "}
-              <strong>{currentUser.role}</strong>) is only assigned to project(s):{" "}
-              <span className="font-mono font-bold text-teal-800">
-                {currentUser.assignedProjectCodes.join(", ")}
-              </span>
-              . Per Business Rule <strong>BR-001</strong>, users cannot access
-              projects outside their authorized assignment.
-            </p>
-            <div className="flex flex-wrap justify-center gap-3 pt-2">
-              <button
-                onClick={() =>
-                  setSelectedProjectCode(currentUser.assignedProjectCodes[0])
-                }
-                className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-xs font-bold"
-              >
-                Switch Back to Authorized Project (
-                {currentUser.assignedProjectCodes[0]})
-              </button>
-              <button
-                onClick={() => setCurrentUser(users[0])}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold"
-              >
-                Switch Role to Project Manager (Ir. Razak Ahmad)
-              </button>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* ============================================================== */}
-            {/* 1. HOME DASHBOARD (Role-Tailored Overview - Section 13.2)      */}
-            {/* ============================================================== */}
-            {activeTab === "DASHBOARD" && (
-              <div className="space-y-6">
-                {/* Role Welcome & Access Matrix Banner */}
-                <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm flex flex-wrap items-center justify-between gap-4">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-900">
-                        ACTIVE ROLE: {currentUser.role.replace("_", " ")}
-                      </span>
-                      <span className="text-xs text-slate-500">
-                        {currentUser.title} • Dashboard Access:{" "}
-                        <strong>{perms.dashboardAccess}</strong>
-                      </span>
-                    </div>
-                    <h2 className="text-xl font-extrabold text-slate-900 mt-1">
-                      {currentProject.name}
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      {currentProject.location} • Project Manager:{" "}
-                      {currentProject.projectManagerName} • Authorized Projects:{" "}
-                      {currentUser.assignedProjectCodes.join(", ")}
-                    </p>
+      {/* Main Body Layout: Left Sidebar + Content Area */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* SIDEBAR NAVIGATION (Construction Theme) */}
+        {isSidebarOpen && (
+          <aside className="w-64 flex-shrink-0 bg-slate-900 border-r border-slate-800 flex flex-col justify-between py-4 px-3 overflow-y-auto shadow-2xl transition-all">
+            <div className="space-y-5">
+              {navSections.map((section) => (
+                <div key={section.group} className="space-y-1">
+                  <div className="px-2 text-[10px] font-mono font-bold tracking-wider text-slate-400 uppercase">
+                    {section.group}
                   </div>
-
-                  {/* Quick Workflow Shortcuts */}
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    <button
-                      onClick={() => setActiveTab("M01_SCANNER")}
-                      className="px-3 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold shadow-sm"
-                    >
-                      📸 Scan Material & Check Stock (M01)
-                    </button>
-                    <button
-                      onClick={() => setActiveTab("M03_QUALITY")}
-                      className="px-3 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold shadow-sm"
-                    >
-                      ⚠ Reflect Vendor Defect (M03)
-                    </button>
-                    <button
-                      onClick={() => setActiveTab("M06_RISK_COPILOT")}
-                      className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm"
-                    >
-                      🤖 Open AI Risk Copilot (M06)
-                    </button>
-                  </div>
-                </div>
-
-                {/* Top 4 KPI Summary Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div
-                    onClick={() => setActiveTab("M05_PROGRESS")}
-                    className="cursor-pointer bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:border-teal-500 transition-all"
-                  >
-                    <div className="text-xs font-semibold text-slate-500">
-                      Project Progress (M05)
-                    </div>
-                    <div className="text-2xl font-extrabold text-slate-900 mt-1">
-                      {currentProject.actualCompletion}%{" "}
-                      <span className="text-xs font-normal text-slate-500">
-                        vs {currentProject.plannedCompletion}% Planned
-                      </span>
-                    </div>
-                    <div className="text-xs font-bold text-rose-600 mt-1">
-                      {currentProject.actualCompletion -
-                        currentProject.plannedCompletion}
-                      % Schedule Variance • {currentProject.status}
-                    </div>
-                  </div>
-
-                  <div
-                    onClick={() => setActiveTab("M02_INVENTORY")}
-                    className="cursor-pointer bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:border-teal-500 transition-all"
-                  >
-                    <div className="text-xs font-semibold text-slate-500">
-                      Live Stock Alerts (M02)
-                    </div>
-                    <div className="text-2xl font-extrabold text-rose-600 mt-1">
-                      {
-                        projInventory.filter(
-                          (i) => computeInventoryMetrics(i).isBelowReorderPoint
-                        ).length
-                      }{" "}
-                      Materials Low
-                    </div>
-                    <div className="text-xs text-slate-600 mt-1">
-                      STL-002 Rebar (3.0d cover) & CEM-001 Cement (&lt;200 ROP)
-                    </div>
-                  </div>
-
-                  <div
-                    onClick={() => setActiveTab("M03_QUALITY")}
-                    className="cursor-pointer bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:border-teal-500 transition-all"
-                  >
-                    <div className="text-xs font-semibold text-slate-500">
-                      Vendor Defects & Evaluation (M03)
-                    </div>
-                    <div className="text-2xl font-extrabold text-amber-600 mt-1">
-                      {
-                        projDefects.filter(
-                          (d) => d.status !== "RESOLVED" && d.status !== "CLOSED"
-                        ).length
-                      }{" "}
-                      Open Defects
-                    </div>
-                    <div className="text-xs text-slate-600 mt-1">
-                      Apex Steel (V002) at 54.4% (DO_NOT_REHIRE)
-                    </div>
-                  </div>
-
-                  <div
-                    onClick={() => setActiveTab("M06_RISK_COPILOT")}
-                    className="cursor-pointer bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:border-teal-500 transition-all"
-                  >
-                    <div className="text-xs font-semibold text-slate-500">
-                      AI Active Risks (M06)
-                    </div>
-                    <div className="text-2xl font-extrabold text-indigo-700 mt-1">
-                      {projRisks.length} Identified Risks
-                    </div>
-                    <div className="text-xs font-bold text-rose-600 mt-1">
-                      {
-                        projRisks.filter((r) => r.riskLevel === "CRITICAL")
-                          .length
-                      }{" "}
-                      Critical •{" "}
-                      {projRisks.filter((r) => r.riskLevel === "HIGH").length}{" "}
-                      High Priority
-                    </div>
-                  </div>
-                </div>
-
-                {/* Main Dashboard Grid: Live Stock Snapshot + Critical Risks + Subcontractor Progress */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                  {/* Left: Critical AI Risks & Early Warnings */}
-                  <div className="lg:col-span-7 bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-slate-900">
-                        Proactive AI Risk Warnings — {selectedProjectCode}
-                      </h3>
-                      <button
-                        onClick={() => setActiveTab("M06_RISK_COPILOT")}
-                        className="text-xs font-bold text-indigo-600 hover:underline"
-                      >
-                        Run What-If Simulator →
-                      </button>
-                    </div>
-                    <div className="space-y-2.5">
-                      {projRisks.map((r) => (
-                        <div
-                          key={r.id}
-                          className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 text-xs space-y-1"
+                  <div className="space-y-0.5">
+                    {section.items.map((item) => {
+                      const isActive = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => setActiveTab(item.id)}
+                          className={`w-full text-left px-3 py-2 rounded-lg text-xs font-semibold flex items-center justify-between transition-all group ${
+                            isActive
+                              ? "bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20"
+                              : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                          }`}
                         >
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-slate-900">
-                              [{r.category}] {r.title}
-                            </span>
+                          <div className="flex items-center gap-2.5 truncate">
+                            <span className="text-sm">{item.icon}</span>
+                            <span className="truncate">{item.label}</span>
+                          </div>
+                          {item.badge !== undefined && item.badge > 0 && (
                             <span
-                              className={`px-2 py-0.5 rounded-full font-extrabold text-[10px] ${
-                                r.riskLevel === "CRITICAL"
-                                  ? "bg-rose-600 text-white"
-                                  : "bg-amber-100 text-amber-900"
+                              className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-black ${
+                                isActive
+                                  ? "bg-slate-950 text-amber-400"
+                                  : "bg-rose-600 text-white"
                               }`}
                             >
-                              {r.riskLevel} ({r.riskScore}/25)
+                              {item.badge}
                             </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Sidebar Footer User / Project Badge */}
+            <div className="pt-4 mt-4 border-t border-slate-800/80 text-[11px] font-mono text-slate-400 space-y-1 bg-slate-950/50 p-2.5 rounded-lg border">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 font-bold">OPERATOR:</span>
+                <span className="text-amber-400 font-bold truncate max-w-[120px]">{currentUser.name}</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px]">
+                <span>ROLE:</span>
+                <span className="text-sky-300 font-semibold">{currentUser.role}</span>
+              </div>
+              <div className="flex justify-between items-center text-[10px]">
+                <span>REGION:</span>
+                <span className="text-emerald-400 font-bold">{currentProject.region}</span>
+              </div>
+            </div>
+          </aside>
+        )}
+
+        {/* MAIN CONTENT AREA */}
+        <main className="flex-1 overflow-y-auto bg-slate-950 p-4 sm:p-6">
+          {/* RBAC Authorization Check (BR-001 & TC-021) */}
+          {!isAuthorizedForProject ? (
+            <div className="bg-slate-900 rounded-2xl border-2 border-rose-500/80 p-8 text-center max-w-xl mx-auto my-12 shadow-2xl space-y-4">
+              <div className="inline-flex h-14 w-14 rounded-full bg-rose-500/20 text-rose-400 items-center justify-center text-3xl font-bold border border-rose-500/40">
+                🔒
+              </div>
+              <span className="block text-xs font-mono font-bold uppercase tracking-wider text-rose-400">
+                BR-001 & TC-021 • ROLE-BASED ACCESS CONTROL
+              </span>
+              <h2 className="text-xl font-extrabold text-white">
+                Access Restricted for Project [{selectedProjectCode}]
+              </h2>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                User <strong className="text-white">{currentUser.name}</strong> ({currentUser.role}) is authorized for:{" "}
+                <span className="font-mono font-bold text-amber-400">
+                  {currentUser.assignedProjectCodes.join(", ")}
+                </span>
+                . Access to non-assigned regional projects is restricted per site governance.
+              </p>
+              <div className="flex flex-wrap justify-center gap-3 pt-2">
+                <button
+                  onClick={() =>
+                    setSelectedProjectCode(currentUser.assignedProjectCodes[0])
+                  }
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs"
+                >
+                  Switch Back to {currentUser.assignedProjectCodes[0]}
+                </button>
+                <button
+                  onClick={() => setCurrentUser(users[0])}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg text-xs border border-slate-700"
+                >
+                  Switch Role to Project Manager (Ir. Razak)
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="max-w-7xl mx-auto space-y-6">
+              {/* ============================================================== */}
+              {/* 1. HOME DASHBOARD WITH INTERACTIVE CHARTS & TOP 5 WARNINGS     */}
+              {/* ============================================================== */}
+              {activeTab === "DASHBOARD" && (
+                <div className="space-y-6">
+                  {/* Top Industrial Banner */}
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg flex flex-wrap items-center justify-between gap-4 relative overflow-hidden">
+                    <div className="relative z-10">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                          {currentProject.region.toUpperCase()} REGIONAL HUB
+                        </span>
+                        <span className="text-xs font-mono text-slate-400">
+                          Manager: <strong className="text-slate-200">{currentProject.projectManagerName}</strong> • Access: <strong className="text-emerald-400">{perms.dashboardAccess}</strong>
+                        </span>
+                      </div>
+                      <h2 className="text-xl font-extrabold text-white mt-1.5 flex items-center gap-2">
+                        <span>{currentProject.name}</span>
+                      </h2>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        📍 {currentProject.location} • Timeline: {currentProject.startDate} to {currentProject.plannedEndDate}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs relative z-10">
+                      <span className="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-amber-400 font-mono font-bold">
+                        Status: {currentProject.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Top 4 KPI Metrics Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div
+                      onClick={() => setActiveTab("M05_PROGRESS")}
+                      className="cursor-pointer bg-slate-900 border border-slate-800 hover:border-amber-500/60 rounded-xl p-4 shadow-md transition-all group"
+                    >
+                      <div className="flex justify-between items-center text-xs text-slate-400 font-mono">
+                        <span>Physical Progress (M05)</span>
+                        <span className="text-slate-400 group-hover:text-amber-400">→</span>
+                      </div>
+                      <div className="text-2xl font-black font-mono text-white mt-1">
+                        {currentProject.actualCompletion}%{" "}
+                        <span className="text-xs font-normal text-slate-400">
+                          / {currentProject.plannedCompletion}% Target
+                        </span>
+                      </div>
+                      <div className="text-xs font-bold text-rose-400 mt-1 flex items-center gap-1">
+                        <span>{currentProject.actualCompletion - currentProject.plannedCompletion}% Variance</span>
+                        <span>•</span>
+                        <span className="uppercase text-[11px] font-mono">{currentProject.status}</span>
+                      </div>
+                    </div>
+
+                    <div
+                      onClick={() => setActiveTab("M02_INVENTORY")}
+                      className="cursor-pointer bg-slate-900 border border-slate-800 hover:border-amber-500/60 rounded-xl p-4 shadow-md transition-all group"
+                    >
+                      <div className="flex justify-between items-center text-xs text-slate-400 font-mono">
+                        <span>Live Stock Status (M04)</span>
+                        <span className="text-slate-400 group-hover:text-amber-400">→</span>
+                      </div>
+                      <div className="text-2xl font-black font-mono text-rose-400 mt-1">
+                        {
+                          projInventory.filter(
+                            (i) => computeInventoryMetrics(i).isBelowReorderPoint
+                          ).length
+                        }{" "}
+                        <span className="text-xs font-normal text-slate-300">Materials Low</span>
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-1 truncate">
+                        Rebar STL-002 (3.0d cover) & CEM-001 Cement
+                      </div>
+                    </div>
+
+                    <div
+                      onClick={() => setActiveTab("M03_QUALITY")}
+                      className="cursor-pointer bg-slate-900 border border-slate-800 hover:border-amber-500/60 rounded-xl p-4 shadow-md transition-all group"
+                    >
+                      <div className="flex justify-between items-center text-xs text-slate-400 font-mono">
+                        <span>Open NCR Defects (M05)</span>
+                        <span className="text-slate-400 group-hover:text-amber-400">→</span>
+                      </div>
+                      <div className="text-2xl font-black font-mono text-amber-400 mt-1">
+                        {
+                          projDefects.filter(
+                            (d) => d.status !== "RESOLVED" && d.status !== "CLOSED"
+                          ).length
+                        }{" "}
+                        <span className="text-xs font-normal text-slate-300">Active NCR</span>
+                      </div>
+                      <div className="text-[11px] text-slate-400 mt-1 truncate">
+                        Apex Steel (54.4% DO_NOT_REHIRE)
+                      </div>
+                    </div>
+
+                    <div
+                      onClick={() => setActiveTab("M06_RISK_COPILOT")}
+                      className="cursor-pointer bg-slate-900 border border-slate-800 hover:border-amber-500/60 rounded-xl p-4 shadow-md transition-all group"
+                    >
+                      <div className="flex justify-between items-center text-xs text-slate-400 font-mono">
+                        <span>Predictive AI Risks (M06)</span>
+                        <span className="text-slate-400 group-hover:text-amber-400">→</span>
+                      </div>
+                      <div className="text-2xl font-black font-mono text-indigo-400 mt-1">
+                        {projRisks.length}{" "}
+                        <span className="text-xs font-normal text-slate-300">Identified</span>
+                      </div>
+                      <div className="text-xs font-bold text-rose-400 mt-1">
+                        {projRisks.filter((r) => r.riskLevel === "CRITICAL").length} Critical •{" "}
+                        {projRisks.filter((r) => r.riskLevel === "HIGH").length} High Priority
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* VISUAL CHARTS SUITE (S-Curve Line, Spend Donut) */}
+                  <DashboardCharts
+                    currentProject={currentProject}
+                    inventory={projInventory}
+                    defects={projDefects}
+                    risks={projRisks}
+                    onNavigateTab={(t) => setActiveTab(t as NavTab)}
+                  />
+
+                  {/* COMPACT TOP 5 PROACTIVE AI RISK WARNINGS SECTION */}
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-800">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
+                          <h3 className="font-mono font-bold text-sm tracking-wide text-rose-400 uppercase">
+                            Proactive AI Risk Early Warnings (Top 5 Prioritized)
+                          </h3>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          Multi-stream correlation: stockout probability, subcontractor schedule slippage & defect rates
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={() => setActiveTab("M06_RISK_COPILOT")}
+                        className="px-3 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 text-xs font-mono font-bold transition-all"
+                      >
+                        View All Risks ({projRisks.length}) in M06 →
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {top5DashboardRisks.map((r, idx) => (
+                        <div
+                          key={r.id}
+                          className={`p-3.5 rounded-lg border text-xs flex flex-col justify-between space-y-2 transition-all ${
+                            r.riskLevel === "CRITICAL"
+                              ? "bg-slate-950/80 border-rose-500/50 shadow-sm"
+                              : "bg-slate-950/60 border-slate-800"
+                          }`}
+                        >
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-mono text-[10px] font-bold text-slate-400">
+                                #{idx + 1} [{r.category}]
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-mono font-black ${
+                                  r.riskLevel === "CRITICAL"
+                                    ? "bg-rose-600 text-white"
+                                    : "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                                }`}
+                              >
+                                {r.riskLevel} ({r.riskScore}/25)
+                              </span>
+                            </div>
+
+                            <div className="font-bold text-slate-200 line-clamp-2">
+                              {r.title}
+                            </div>
+                            <p className="text-slate-400 text-[11px] line-clamp-2 leading-relaxed">
+                              {r.description}
+                            </p>
                           </div>
-                          <p className="text-slate-600">{r.description}</p>
-                          <div className="text-teal-800 font-medium">
-                            <strong>AI Action:</strong> {r.recommendedAction}
+
+                          <div className="pt-2 border-t border-slate-800/80 space-y-1.5">
+                            <div className="text-[11px] text-amber-300/90 font-medium line-clamp-2">
+                              <strong className="text-amber-400 font-mono">AI Action:</strong> {r.recommendedAction}
+                            </div>
+                            <div className="flex items-center justify-between pt-1">
+                              <span className="text-[10px] font-mono text-slate-500">
+                                Owner: {r.riskOwner.split(" ")[0]}
+                              </span>
+                              <button
+                                onClick={() => setActiveTab("M06_RISK_COPILOT")}
+                                className="text-[11px] font-mono font-bold text-indigo-400 hover:text-indigo-300 underline"
+                              >
+                                Investigate →
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
-
-                  {/* Right: Live Stock & Subcontractor Milestone Snapshot */}
-                  <div className="lg:col-span-5 space-y-6">
-                    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-slate-900 text-sm">
-                          Live Material Stock Coverage (M02)
-                        </h3>
-                        <button
-                          onClick={() => setActiveTab("M02_INVENTORY")}
-                          className="text-xs font-bold text-teal-700 hover:underline"
-                        >
-                          Manage Stock →
-                        </button>
-                      </div>
-                      <div className="space-y-2 text-xs">
-                        {projInventory.map((inv) => {
-                          const mat = materials.find(
-                            (m) => m.materialCode === inv.materialCode
-                          );
-                          const m = computeInventoryMetrics(inv);
-                          return (
-                            <div
-                              key={inv.id}
-                              className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200"
-                            >
-                              <div>
-                                <div className="font-bold text-slate-900">
-                                  {mat?.name || inv.materialCode}
-                                </div>
-                                <div className="text-[11px] text-slate-500">
-                                  Available: {m.availableStock} {mat?.unit} |
-                                  ROP: {m.reorderPoint} {mat?.unit}
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <div className="font-extrabold text-slate-900">
-                                  {m.stockCoverageDays ?? "N/A"} days
-                                </div>
-                                <span
-                                  className={`text-[10px] font-bold ${
-                                    m.isBelowReorderPoint
-                                      ? "text-rose-600"
-                                      : "text-emerald-700"
-                                  }`}
-                                >
-                                  {m.statusLabel.replace("_", " ")}
-                                </span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-slate-900 text-sm">
-                          Subcontractor & Milestone Status (M05)
-                        </h3>
-                        <button
-                          onClick={() => setActiveTab("M05_PROGRESS")}
-                          className="text-xs font-bold text-teal-700 hover:underline"
-                        >
-                          Update Progress →
-                        </button>
-                      </div>
-                      <div className="space-y-2 text-xs">
-                        {projMilestones.map((ms) => (
-                          <div
-                            key={ms.id}
-                            className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1"
-                          >
-                            <div className="flex justify-between font-bold text-slate-800">
-                              <span>{ms.name}</span>
-                              <span>
-                                {ms.actualProgress}% / {ms.plannedProgress}%
-                              </span>
-                            </div>
-                            <div className="text-[11px] text-slate-500">
-                              Subcon: {ms.subcontractorName}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* ============================================================== */}
-            {/* 2 & 3. MODULE 01: AI SCANNER & VENDOR FINDER                   */}
-            {/* ============================================================== */}
-            {(activeTab === "M01_SCANNER" || activeTab === "M01_VENDOR") && (
-              <ScannerAndVendorModules
-                activeTab={activeTab}
-                projectCode={selectedProjectCode}
-                materials={materials}
-                vendors={vendors}
-                inventory={inventory}
-                defects={defects}
-                onNavigateTab={(t) => setActiveTab(t as NavTab)}
-              />
-            )}
+              {/* ============================================================== */}
+              {/* 2 & 3. MODULE 01: AI SCANNER & VENDOR FINDER                   */}
+              {/* ============================================================== */}
+              {(activeTab === "M01_SCANNER" || activeTab === "M01_VENDOR") && (
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg text-slate-900">
+                  <ScannerAndVendorModules
+                    activeTab={activeTab}
+                    projectCode={selectedProjectCode}
+                    materials={materials}
+                    vendors={vendors}
+                    inventory={inventory}
+                    defects={defects}
+                    onNavigateTab={(t) => setActiveTab(t as NavTab)}
+                  />
+                </div>
+              )}
 
-            {/* ============================================================== */}
-            {/* 4 & 5. MODULE 02 (INVENTORY) & MODULE 03 (QUALITY/DEFECTS)     */}
-            {/* ============================================================== */}
-            {(activeTab === "M02_INVENTORY" || activeTab === "M03_QUALITY") && (
-              <InventoryAndQualityModules
-                activeTab={activeTab}
-                projectCode={selectedProjectCode}
-                projects={projects}
-                currentUser={currentUser}
-                materials={materials}
-                vendors={vendors}
-                inventory={inventory}
-                transactions={transactions}
-                inspections={inspections}
-                defects={defects}
-                onRecordConsumption={handleRecordConsumption}
-                onRecordGoodsReceipt={handleRecordGoodsReceipt}
-                onTransferMaterial={handleTransferMaterial}
-                onReportDefect={handleReportDefect}
-                onUpdateDefectStatus={handleUpdateDefectStatus}
-              />
-            )}
+              {/* ============================================================== */}
+              {/* 4 & 5. MODULE 02 (INVENTORY) & MODULE 03 (QUALITY/DEFECTS)     */}
+              {/* ============================================================== */}
+              {(activeTab === "M02_INVENTORY" || activeTab === "M03_QUALITY") && (
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg text-slate-900">
+                  <InventoryAndQualityModules
+                    activeTab={activeTab}
+                    projectCode={selectedProjectCode}
+                    projects={projects}
+                    currentUser={currentUser}
+                    materials={materials}
+                    vendors={vendors}
+                    inventory={inventory}
+                    transactions={transactions}
+                    inspections={inspections}
+                    defects={defects}
+                    onRecordConsumption={handleRecordConsumption}
+                    onRecordGoodsReceipt={handleRecordGoodsReceipt}
+                    onTransferMaterial={handleTransferMaterial}
+                    onReportDefect={handleReportDefect}
+                    onUpdateDefectStatus={handleUpdateDefectStatus}
+                  />
+                </div>
+              )}
 
-            {/* ============================================================== */}
-            {/* 6, 7 & 8. MODULES 04 (EQUIPMENT), 05 (PROGRESS), 06 (COPILOT)  */}
-            {/* ============================================================== */}
-            {(activeTab === "M04_EQUIPMENT" ||
-              activeTab === "M05_PROGRESS" ||
-              activeTab === "M06_RISK_COPILOT") && (
-              <EquipmentProgressRiskModules
-                activeTab={activeTab}
-                projectCode={selectedProjectCode}
-                projects={projects}
-                currentUser={currentUser}
-                equipments={equipments}
-                milestones={milestones}
-                progressUpdates={progressUpdates}
-                photos={photos}
-                risks={risks}
-                inventory={inventory}
-                materials={materials}
-                vendors={vendors}
-                onEquipmentAction={handleEquipmentAction}
-                onUpdateMilestoneProgress={handleUpdateMilestoneProgress}
-                onUpdateRisk={handleUpdateRisk}
-              />
-            )}
+              {/* ============================================================== */}
+              {/* 5 & 6. MODULES 05 (PROGRESS) & 06 (RISK & COPILOT)             */}
+              {/* ============================================================== */}
+              {(activeTab === "M05_PROGRESS" ||
+                activeTab === "M06_RISK_COPILOT") && (
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg text-slate-900">
+                  <EquipmentProgressRiskModules
+                    activeTab={activeTab}
+                    projectCode={selectedProjectCode}
+                    projects={projects}
+                    currentUser={currentUser}
+                    equipments={equipments}
+                    milestones={milestones}
+                    progressUpdates={progressUpdates}
+                    photos={photos}
+                    risks={risks}
+                    inventory={inventory}
+                    materials={materials}
+                    vendors={vendors}
+                    onUpdateMilestoneProgress={handleUpdateMilestoneProgress}
+                    onUpdateRisk={handleUpdateRisk}
+                  />
+                </div>
+              )}
 
-            {/* ============================================================== */}
-            {/* 9. NOTIFICATIONS (AL-001 to AL-010) & AUDIT TRAIL (SECTION 18) */}
-            {/* ============================================================== */}
-            {activeTab === "NOTIFICATIONS_AUDIT" && (
-              <div className="space-y-6">
-                {/* Notifications Center */}
-                <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-teal-700">
-                        SECTION 15 • CONFIGURED BUSINESS ALERTS (AL-001 TO
-                        AL-010)
-                      </span>
-                      <h2 className="text-xl font-bold text-slate-900">
-                        Role Notifications for {currentUser.name} (
-                        {currentUser.role})
-                      </h2>
-                    </div>
-                    <button
-                      onClick={() =>
-                        setNotifications((prev) =>
-                          prev.map((n) => ({ ...n, isRead: true }))
-                        )
-                      }
-                      className="px-3 py-1.5 bg-slate-800 text-white rounded-lg text-xs font-semibold"
-                    >
-                      Mark All as Read
-                    </button>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    {projNotifications.map((n) => (
-                      <div
-                        key={n.id}
-                        className={`p-3.5 rounded-xl border text-xs flex flex-wrap items-center justify-between gap-3 ${
-                          n.isRead
-                            ? "bg-slate-50 border-slate-200 text-slate-600"
-                            : "bg-white border-l-4 border-l-rose-600 border-slate-200 shadow-sm"
-                        }`}
+              {/* ============================================================== */}
+              {/* 9. NOTIFICATIONS & AUDIT TRAIL                                 */}
+              {/* ============================================================== */}
+              {activeTab === "NOTIFICATIONS_AUDIT" && (
+                <div className="space-y-6">
+                  {/* Notifications Center */}
+                  <div className="bg-slate-900 rounded-xl border border-slate-800 p-6 shadow-lg space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400">
+                          SECTION 15 • CONFIGURED BUSINESS ALERTS (AL-001 TO AL-010)
+                        </span>
+                        <h2 className="text-xl font-bold text-white">
+                          Role Notifications for {currentUser.name} ({currentUser.role})
+                        </h2>
+                      </div>
+                      <button
+                        onClick={() =>
+                          setNotifications((prev) =>
+                            prev.map((n) => ({ ...n, isRead: true }))
+                          )
+                        }
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 rounded-lg text-xs font-mono font-semibold"
                       >
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-bold text-slate-800">
-                              {n.alertCode}
-                            </span>
-                            <span
-                              className={`px-2 py-0.5 rounded font-bold text-[10px] ${
-                                n.priority === "CRITICAL"
-                                  ? "bg-rose-600 text-white"
-                                  : "bg-amber-100 text-amber-900"
-                              }`}
-                            >
-                              {n.priority}
-                            </span>
-                            <strong className="text-slate-900 text-sm">
-                              {n.title}
-                            </strong>
-                          </div>
-                          <p>{n.description}</p>
-                          <div className="text-[11px] text-slate-400">
-                            Ref: {n.relatedRef} • Created: {n.createdAt}
-                          </div>
-                        </div>
+                        Mark All as Read
+                      </button>
+                    </div>
 
-                        <button
-                          onClick={() => {
-                            setNotifications((prev) =>
-                              prev.map((item) =>
-                                item.id === n.id
-                                  ? { ...item, isRead: true }
-                                  : item
-                              )
-                            );
-                            const mapTab: Record<string, NavTab> = {
-                              M01: "M01_SCANNER",
-                              M02: "M02_INVENTORY",
-                              M03: "M03_QUALITY",
-                              M04: "M04_EQUIPMENT",
-                              M05: "M05_PROGRESS",
-                              M06: "M06_RISK_COPILOT",
-                            };
-                            setActiveTab(mapTab[n.targetModule] || "DASHBOARD");
-                          }}
-                          className="px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-900 border border-teal-200 rounded-lg font-bold"
+                    <div className="space-y-2.5">
+                      {projNotifications.map((n) => (
+                        <div
+                          key={n.id}
+                          className={`p-3.5 rounded-xl border text-xs flex flex-wrap items-center justify-between gap-3 ${
+                            n.isRead
+                              ? "bg-slate-950/60 border-slate-800 text-slate-400"
+                              : "bg-slate-950 border-l-4 border-l-rose-500 border-slate-800 shadow-md text-slate-200"
+                          }`}
                         >
-                          Open {n.targetModule} →
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-amber-400">
+                                {n.alertCode}
+                              </span>
+                              <span
+                                className={`px-2 py-0.5 rounded font-mono font-bold text-[10px] ${
+                                  n.priority === "CRITICAL"
+                                    ? "bg-rose-600 text-white"
+                                    : "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                                }`}
+                              >
+                                {n.priority}
+                              </span>
+                              <strong className="text-white text-sm">
+                                {n.title}
+                              </strong>
+                            </div>
+                            <p className="text-slate-300">{n.description}</p>
+                            <div className="text-[11px] text-slate-500 font-mono">
+                              Ref: {n.relatedRef} • Created: {n.createdAt}
+                            </div>
+                          </div>
 
-                {/* Immutable Audit Trail (Section 18) */}
-                <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-4">
-                  <div>
-                    <span className="text-xs font-bold uppercase tracking-wider text-teal-700">
-                      SECTION 18 & BR-019 • IMMUTABLE AUDIT TRAIL
-                    </span>
-                    <h3 className="text-lg font-bold text-slate-900">
-                      System Activity & Record Change Log ({auditLogs.length})
-                    </h3>
+                          <button
+                            onClick={() => {
+                              setNotifications((prev) =>
+                                prev.map((item) =>
+                                  item.id === n.id
+                                    ? { ...item, isRead: true }
+                                    : item
+                                )
+                              );
+                              const mapTab: Record<string, NavTab> = {
+                                M01: "M01_SCANNER",
+                                M02: "M02_INVENTORY",
+                                M03: "M03_QUALITY",
+                                M04: "M04_EQUIPMENT",
+                                M05: "M05_PROGRESS",
+                                M06: "M06_RISK_COPILOT",
+                              };
+                              setActiveTab(mapTab[n.targetModule] || "DASHBOARD");
+                            }}
+                            className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-lg font-mono font-bold"
+                          >
+                            Open {n.targetModule} →
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="bg-slate-100 text-slate-600 border-b border-slate-200">
-                          <th className="py-2.5 px-3">Audit ID</th>
-                          <th className="py-2.5 px-3">Timestamp</th>
-                          <th className="py-2.5 px-3">User & Role</th>
-                          <th className="py-2.5 px-3">Project & Module</th>
-                          <th className="py-2.5 px-3">Action & Record ID</th>
-                          <th className="py-2.5 px-3">Previous Value</th>
-                          <th className="py-2.5 px-3">New Value</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {auditLogs.map((a) => (
-                          <tr key={a.id} className="hover:bg-slate-50">
-                            <td className="py-2.5 px-3 font-mono font-bold">
-                              {a.auditCode}
-                            </td>
-                            <td className="py-2.5 px-3 text-slate-500">
-                              {a.timestamp}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <div className="font-semibold text-slate-900">
-                                {a.userName}
-                              </div>
-                              <div className="text-[10px] text-slate-500">
-                                {a.userRole}
-                              </div>
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <div className="font-bold text-teal-800">
-                                {a.projectCode}
-                              </div>
-                              <div className="text-[11px] text-slate-500">
-                                {a.module}
-                              </div>
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <div className="font-mono font-bold text-slate-800">
-                                {a.action}
-                              </div>
-                              <div className="text-[11px] text-slate-500">
-                                ID: {a.recordId}
-                              </div>
-                            </td>
-                            <td className="py-2.5 px-3 text-slate-500">
-                              {a.previousValue}
-                            </td>
-                            <td className="py-2.5 px-3 font-semibold text-slate-900">
-                              {a.newValue}
-                            </td>
+                  {/* Immutable Audit Trail */}
+                  <div className="bg-slate-900 rounded-xl border border-slate-800 p-6 shadow-lg space-y-4">
+                    <div>
+                      <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400">
+                        SECTION 18 & BR-019 • IMMUTABLE AUDIT TRAIL
+                      </span>
+                      <h3 className="text-lg font-bold text-white">
+                        System Activity & Record Change Log ({auditLogs.length})
+                      </h3>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-950 text-slate-400 border-b border-slate-800 font-mono">
+                            <th className="py-2.5 px-3">Audit ID</th>
+                            <th className="py-2.5 px-3">Timestamp</th>
+                            <th className="py-2.5 px-3">User & Role</th>
+                            <th className="py-2.5 px-3">Project & Module</th>
+                            <th className="py-2.5 px-3">Action & Record ID</th>
+                            <th className="py-2.5 px-3">Previous Value</th>
+                            <th className="py-2.5 px-3">New Value</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800">
+                          {auditLogs.map((a) => (
+                            <tr key={a.id} className="hover:bg-slate-800/50">
+                              <td className="py-2.5 px-3 font-mono font-bold text-amber-400">
+                                {a.auditCode}
+                              </td>
+                              <td className="py-2.5 px-3 text-slate-400 font-mono">
+                                {a.timestamp}
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <div className="font-semibold text-white">
+                                  {a.userName}
+                                </div>
+                                <div className="text-[10px] font-mono text-slate-400">
+                                  {a.userRole}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <div className="font-bold text-amber-300 font-mono">
+                                  {a.projectCode}
+                                </div>
+                                <div className="text-[11px] text-slate-400">
+                                  {a.module}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3">
+                                <div className="font-mono font-bold text-sky-400">
+                                  {a.action}
+                                </div>
+                                <div className="text-[11px] text-slate-500 font-mono">
+                                  ID: {a.recordId}
+                                </div>
+                              </td>
+                              <td className="py-2.5 px-3 text-slate-400 font-mono">
+                                {a.previousValue}
+                              </td>
+                              <td className="py-2.5 px-3 font-semibold text-emerald-400 font-mono">
+                                {a.newValue}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-          </>
-        )}
-      </main>
+              )}
+            </div>
+          )}
+        </main>
+      </div>
     </div>
   );
 }

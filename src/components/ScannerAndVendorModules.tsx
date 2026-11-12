@@ -28,28 +28,21 @@ export function ScannerAndVendorModules({
   defects,
   onNavigateTab,
 }: ScannerAndVendorProps) {
-  // M01 Scanner State
+  // M02 Scanner State
   const [selectedPresetCode, setSelectedPresetCode] = useState<string>("STL-002");
   const [uploadedPreviewUrl, setUploadedPreviewUrl] = useState<string>(
     materials.find((m) => m.materialCode === "STL-002")?.imageUrl || ""
   );
   const [uploadedFileName, setUploadedFileName] = useState<string>(
-    "site_gate_delivery_rebar_t16.jpg"
-  );
-  const [scanNotes, setScanNotes] = useState<string>(
-    "Gate B delivery inspection - checking site stock & approved vendor performance"
+    "site_delivery_rebar_t16.jpg"
   );
   const [isScanning, setIsScanning] = useState<boolean>(false);
-  const [isConfirmedByUser, setIsConfirmedByUser] = useState<boolean>(true);
   const [manualOverrideCode, setManualOverrideCode] = useState<string>("");
 
-  // M01 Vendor Finder State
+  // M03 Vendor Finder State
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [selectedMaterialForVendor, setSelectedMaterialForVendor] =
-    useState<string>("STL-002");
-  const [recommendationGoal, setRecommendationGoal] = useState<
-    "BEST_BALANCE" | "LOWEST_PRICE" | "SHORTEST_LEAD" | "HIGHEST_STOCK" | "BEST_PERFORMANCE"
-  >("BEST_BALANCE");
+  const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+  const [selectedEvaluationStatus, setSelectedEvaluationStatus] = useState<string>("ALL");
 
   const activeMaterialCode = manualOverrideCode || selectedPresetCode;
   const recognizedMaterial =
@@ -57,10 +50,10 @@ export function ScannerAndVendorModules({
 
   const confidenceScore =
     recognizedMaterial.materialCode === "CEM-006"
-      ? 81.5
+      ? 82.4
       : recognizedMaterial.materialCode === "STL-002"
-        ? 96.4
-        : 94.8;
+        ? 97.6
+        : 95.2;
 
   // Live Project Stock for Recognized Material
   const projectStockRecord = inventory.find(
@@ -80,7 +73,7 @@ export function ScannerAndVendorModules({
   );
 
   // Matching Vendors for Recognized Material
-  const matchingScanVendors = vendors.filter((v) =>
+  const matchingVendors = vendors.filter((v) =>
     v.products.some((p) => p.materialCode === recognizedMaterial.materialCode)
   );
 
@@ -89,9 +82,8 @@ export function ScannerAndVendorModules({
     setManualOverrideCode("");
     setSelectedPresetCode(mat.materialCode);
     setUploadedPreviewUrl(mat.imageUrl);
-    setUploadedFileName(`site_photo_${mat.materialCode.toLowerCase()}.jpg`);
-    setIsConfirmedByUser(mat.materialCode !== "CEM-006");
-    setTimeout(() => setIsScanning(false), 350);
+    setUploadedFileName(`site_sample_${mat.materialCode.toLowerCase()}.jpg`);
+    setTimeout(() => setIsScanning(false), 300);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,7 +91,7 @@ export function ScannerAndVendorModules({
     if (!file) return;
     const validTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
     if (!validTypes.includes(file.type)) {
-      alert("BR-M01-001: Only JPG, JPEG, PNG or WEBP images are supported.");
+      alert("Please upload a valid image file (JPG, PNG, or WEBP).");
       return;
     }
     setIsScanning(true);
@@ -118,89 +110,85 @@ export function ScannerAndVendorModules({
     reader.readAsDataURL(file);
   };
 
+  // Filtered Vendors for M03 Vendor Finder
+  const filteredVendors = vendors.filter((v) => {
+    const matchesSearch =
+      v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.vendorCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.tradeSpecialty.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory =
+      selectedCategory === "ALL" ||
+      v.products.some((p) => {
+        const mat = materials.find((m) => m.materialCode === p.materialCode);
+        return mat?.category === selectedCategory;
+      });
+    const matchesStatus =
+      selectedEvaluationStatus === "ALL" ||
+      v.performance.evaluationStatus === selectedEvaluationStatus;
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  // =========================================================================
+  // M02: AI MATERIAL SCANNER (STREAMLINED SMALL FEATURE)
+  // =========================================================================
   if (activeTab === "M01_SCANNER") {
     return (
       <div className="space-y-6">
         {/* Header Banner */}
-        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-teal-900 text-white rounded-xl p-6 shadow-md">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-500/20 text-teal-300 border border-teal-400/30 mb-2">
-                MODULE 01 • AI VISION + LIVE STOCK & VENDOR CHECK
+        <div className="bg-slate-900 border border-slate-800 text-white rounded-xl p-5 shadow-lg flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                MODULE 02 • AI MATERIAL SCANNER
               </span>
-              <h2 className="text-2xl font-bold">
-                AI Material Scanner & Instant Stock / Vendor Lookup
-              </h2>
-              <p className="text-slate-300 text-sm mt-1">
-                Upload or capture a site product photograph. AI identifies the
-                material and immediately checks <strong>{projectCode}</strong>{" "}
-                live stock coverage, cross-site surplus, and approved vendor
-                defect/performance records.
-              </p>
+              <span className="text-xs text-slate-400 font-mono">
+                Project: <strong className="text-amber-400">{projectCode}</strong>
+              </span>
             </div>
-            <div className="bg-amber-500/20 border border-amber-400/40 rounded-lg px-3 py-2 text-xs text-amber-200 max-w-xs">
-              <strong>BR-002 & BR-003 Rule:</strong> Visual recognition
-              identifies material category; engineer must verify mill/batch
-              certificates for structural grade equivalence.
-            </div>
+            <h2 className="text-xl font-extrabold">AI Material Recognition & Live Inventory Bridge</h2>
+            <p className="text-slate-400 text-xs mt-1">
+              Upload a site photo to automatically identify material specs, approved vendor providers, and live project inventory.
+            </p>
           </div>
+          <button
+            onClick={() => onNavigateTab("M02_INVENTORY")}
+            className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md flex items-center gap-1.5"
+          >
+            📦 Go to Live Stock Inventory →
+          </button>
         </div>
 
-        {/* Upload & Sample Presets */}
+        {/* 2-Column Compact Scanner Interface */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-5 bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
-            <h3 className="font-bold text-slate-800 text-base flex items-center justify-between">
-              <span>1. Upload or Select Site Material Photo</span>
-              <span className="text-xs font-normal text-slate-500">
-                JPG / PNG (Max 10MB)
-              </span>
-            </h3>
-
-            {/* Quick Demo Presets for Stage Pitch */}
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                One-Click Stage Demo Photo Samples (TC-001):
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                {materials.map((m) => (
-                  <button
-                    key={m.materialCode}
-                    onClick={() => handlePresetSelect(m)}
-                    className={`text-left p-2.5 rounded-lg border text-xs transition-all ${
-                      recognizedMaterial.materialCode === m.materialCode
-                        ? "border-teal-600 bg-teal-50/70 text-teal-950 font-semibold shadow-sm"
-                        : "border-slate-200 hover:border-slate-300 text-slate-700 bg-slate-50/50"
-                    }`}
-                  >
-                    <div className="font-bold text-teal-700">
-                      {m.materialCode}
-                    </div>
-                    <div className="truncate">{m.name}</div>
-                  </button>
-                ))}
-              </div>
+          {/* 1. Image Upload & Samples (Left) */}
+          <div className="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-mono font-bold text-sm text-slate-200 uppercase tracking-wide">
+                1. Upload Site Photo
+              </h3>
+              <span className="text-[11px] text-slate-400">JPG, PNG, WEBP</span>
             </div>
 
-            {/* File Input & Image Preview */}
-            <div className="border-2 border-dashed border-slate-300 rounded-xl p-4 text-center bg-slate-50">
+            {/* Upload Area */}
+            <div className="border-2 border-dashed border-slate-700 hover:border-amber-500/70 rounded-xl p-4 text-center bg-slate-950/60 transition-all">
               {uploadedPreviewUrl ? (
                 <div className="space-y-3">
-                  <div className="relative h-48 w-full overflow-hidden rounded-lg border border-slate-200 bg-slate-900">
+                  <div className="relative h-44 w-full overflow-hidden rounded-lg border border-slate-700 bg-slate-900">
                     <img
                       src={uploadedPreviewUrl}
                       alt={recognizedMaterial.name}
-                      className="h-full w-full object-cover opacity-90"
+                      className="h-full w-full object-cover"
                     />
-                    <div className="absolute top-2 left-2 bg-slate-900/80 text-white text-xs px-2.5 py-1 rounded-md font-mono">
+                    <div className="absolute top-2 left-2 bg-slate-950/80 text-amber-400 text-[10px] px-2 py-0.5 rounded font-mono border border-slate-700">
                       {uploadedFileName}
                     </div>
-                    <div className="absolute bottom-2 right-2 bg-teal-600 text-white text-xs px-2.5 py-1 rounded-md font-semibold">
-                      AI Confidence: {confidenceScore}%
+                    <div className="absolute bottom-2 right-2 bg-emerald-600 text-white text-[11px] px-2 py-0.5 rounded font-bold shadow">
+                      AI Match: {confidenceScore}%
                     </div>
                   </div>
                   <div className="flex items-center justify-center gap-2">
-                    <label className="cursor-pointer px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-medium">
-                      Replace Photo
+                    <label className="cursor-pointer px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold border border-slate-700">
+                      Change Photo
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/webp"
@@ -213,19 +201,20 @@ export function ScannerAndVendorModules({
                         setUploadedPreviewUrl("");
                         setUploadedFileName("");
                       }}
-                      className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-xs font-medium"
+                      className="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 rounded-lg text-xs font-semibold"
                     >
-                      Remove Photo
+                      Clear
                     </button>
                   </div>
                 </div>
               ) : (
                 <label className="cursor-pointer block py-8">
-                  <div className="text-sm font-semibold text-slate-700">
+                  <div className="text-3xl mb-2">📸</div>
+                  <div className="text-xs font-bold text-slate-200">
                     Click to Upload Construction Material Photo
                   </div>
-                  <div className="text-xs text-slate-500 mt-1">
-                    Supports JPG, JPEG, PNG • Instant AI Vision + Stock Lookup
+                  <div className="text-[11px] text-slate-400 mt-1">
+                    Instant AI Visual Recognition + Inventory Link
                   </div>
                   <input
                     type="file"
@@ -237,165 +226,116 @@ export function ScannerAndVendorModules({
               )}
             </div>
 
+            {/* Quick Demo Sample Selector */}
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Optional Site Context / Location Notes:
-              </label>
-              <input
-                type="text"
-                value={scanNotes}
-                onChange={(e) => setScanNotes(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-xs"
-              />
+              <p className="text-[11px] font-mono font-bold uppercase text-slate-400 mb-2">
+                Quick Test Samples:
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {materials.map((m) => (
+                  <button
+                    key={m.materialCode}
+                    onClick={() => handlePresetSelect(m)}
+                    className={`text-left p-2 rounded-lg border text-xs transition-all ${
+                      recognizedMaterial.materialCode === m.materialCode
+                        ? "border-amber-500 bg-amber-500/10 text-white font-bold"
+                        : "border-slate-800 hover:border-slate-700 text-slate-300 bg-slate-950/40"
+                    }`}
+                  >
+                    <div className="font-mono text-amber-400 text-[11px]">{m.materialCode}</div>
+                    <div className="truncate text-xs">{m.name}</div>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Right Column: AI Recognition + Live Stock + Vendor Info */}
-          <div className="lg:col-span-7 space-y-5">
+          {/* 2. Recognized Material & Provider Info & Live Stock Bridge (Right) */}
+          <div className="lg:col-span-7 space-y-4">
             {isScanning ? (
-              <div className="bg-white rounded-xl border border-slate-200 p-12 text-center shadow-sm">
-                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-teal-600 border-t-transparent mb-3" />
-                <p className="font-semibold text-slate-800">
-                  AI Analyzing Material Image & Querying {projectCode} Live
-                  Inventory...
+              <div className="bg-slate-900 border border-slate-800 rounded-xl p-12 text-center shadow-md">
+                <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-amber-500 border-t-transparent mb-3" />
+                <p className="font-semibold text-white text-sm">
+                  AI Analyzing Material & Cross-referencing {projectCode} Stock...
                 </p>
               </div>
             ) : (
               <>
-                {/* 1. AI Material Identification Card (FR-M01-002) */}
-                <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3 mb-4">
+                {/* A. Identified Material Specifications */}
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
                     <div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-teal-700">
-                        Step 2 • AI Material Identification Result (FR-M01-002)
+                      <span className="text-[10px] font-mono font-bold uppercase text-amber-400">
+                        AI RECOGNIZED MATERIAL
                       </span>
-                      <h3 className="text-lg font-bold text-slate-900 mt-0.5">
+                      <h3 className="text-lg font-extrabold text-white mt-0.5">
                         {recognizedMaterial.name}{" "}
-                        <span className="text-sm font-mono text-teal-700 bg-teal-50 px-2 py-0.5 rounded border border-teal-200">
+                        <span className="text-xs font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30">
                           {recognizedMaterial.materialCode}
                         </span>
                       </h3>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                          confidenceScore >= 85
-                            ? "bg-emerald-100 text-emerald-800"
-                            : "bg-amber-100 text-amber-800"
-                        }`}
-                      >
-                        {confidenceScore}% Confidence
-                      </span>
-                      <span
-                        className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                          isConfirmedByUser
-                            ? "bg-blue-100 text-blue-800"
-                            : "bg-rose-100 text-rose-800"
-                        }`}
-                      >
-                        {isConfirmedByUser
-                          ? "✓ User Confirmed (TC-002)"
-                          : "⚠ Confirmation Needed (BR-002)"}
-                      </span>
-                    </div>
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      ✓ {confidenceScore}% Confidence
+                    </span>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                      <div className="text-slate-500 font-medium">
-                        Category & Brand
-                      </div>
-                      <div className="font-semibold text-slate-900 mt-0.5">
-                        {recognizedMaterial.category} •{" "}
-                        {recognizedMaterial.brand}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                      <div className="text-slate-400 font-medium">Category & Brand</div>
+                      <div className="font-bold text-white mt-0.5">
+                        {recognizedMaterial.category} • {recognizedMaterial.brand}
                       </div>
                     </div>
-                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                      <div className="text-slate-500 font-medium">
-                        Unit & Technical Specification
-                      </div>
-                      <div className="font-semibold text-slate-900 mt-0.5">
-                        Unit: {recognizedMaterial.unit} |{" "}
-                        {recognizedMaterial.specifications}
+                    <div className="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                      <div className="text-slate-400 font-medium">Unit & Specification</div>
+                      <div className="font-bold text-white mt-0.5">
+                        Unit: {recognizedMaterial.unit} | {recognizedMaterial.specifications}
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200 text-xs">
+                  <div className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-xs flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <span className="font-semibold text-slate-700">
-                        Visual Features Detected:{" "}
-                      </span>
-                      <span className="text-slate-600">
+                      <span className="text-slate-400">Visual Features Detected: </span>
+                      <span className="text-amber-300 font-medium">
                         {recognizedMaterial.aiCharacteristics.join(" • ")}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {!isConfirmedByUser && (
-                        <button
-                          onClick={() => setIsConfirmedByUser(true)}
-                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg"
-                        >
-                          Confirm Identification
-                        </button>
-                      )}
-                      <select
-                        value={manualOverrideCode}
-                        onChange={(e) => {
-                          setManualOverrideCode(e.target.value);
-                          setIsConfirmedByUser(true);
-                        }}
-                        className="rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs bg-white"
-                      >
-                        <option value="">
-                          Correct / Override Material (BR-002)...
+                    <select
+                      value={manualOverrideCode}
+                      onChange={(e) => setManualOverrideCode(e.target.value)}
+                      className="bg-slate-900 border border-slate-700 text-slate-200 rounded px-2 py-1 text-xs"
+                    >
+                      <option value="">Manual Override / Correct Material...</option>
+                      {materials.map((m) => (
+                        <option key={m.materialCode} value={m.materialCode}>
+                          {m.materialCode} – {m.name}
                         </option>
-                        {materials.map((m) => (
-                          <option key={m.materialCode} value={m.materialCode}>
-                            {m.materialCode} – {m.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                      ))}
+                    </select>
                   </div>
-
-                  {/* Alternative Material Recommendation (FR-M01-007 & BR-003) */}
-                  {recognizedMaterial.alternativeCodes.length > 0 && (
-                    <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">
-                      <strong>
-                        Alternative Material Available (FR-M01-007 / BR-003):
-                      </strong>{" "}
-                      Possible alternative code(s):{" "}
-                      <span className="font-mono font-bold">
-                        {recognizedMaterial.alternativeCodes.join(", ")}
-                      </span>
-                      . Must NOT be treated as technically equivalent without
-                      Site Engineer specification verification.
-                    </div>
-                  )}
                 </div>
 
-                {/* 2. AUTOMATIC LIVE STOCK QUANTITY CHECK ON UPLOAD */}
-                <div className="bg-white rounded-xl border-2 border-teal-600/30 p-5 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                {/* B. Live Stock Inventory Status (Direct Link) */}
+                <div className="bg-slate-900 border border-amber-500/30 rounded-xl p-5 shadow-md space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-teal-700">
-                        Step 3 • AI Automatic Live Stock Quantity Check (M02
-                        Link)
+                      <span className="text-[10px] font-mono font-bold uppercase text-sky-400">
+                        AUTOMATIC LIVE STOCK INVENTORY STATUS
                       </span>
-                      <h4 className="text-base font-bold text-slate-900">
-                        On-Site Stock at {projectCode} for{" "}
-                        {recognizedMaterial.materialCode}
+                      <h4 className="text-base font-bold text-white">
+                        On-Site Stock at {projectCode}
                       </h4>
                     </div>
                     {stockMetrics && (
                       <span
-                        className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        className={`px-2.5 py-1 rounded-full text-xs font-bold ${
                           stockMetrics.statusLabel === "CRITICAL_SHORTAGE"
-                            ? "bg-rose-100 text-rose-800 border border-rose-300"
+                            ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
                             : stockMetrics.statusLabel === "LOW_STOCK"
-                              ? "bg-amber-100 text-amber-800 border border-amber-300"
-                              : "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                              ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                              : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
                         }`}
                       >
                         {stockMetrics.statusLabel.replace("_", " ")}
@@ -405,220 +345,104 @@ export function ScannerAndVendorModules({
 
                   {projectStockRecord && stockMetrics ? (
                     <div className="space-y-3">
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 text-center">
-                        <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                          <div className="text-[11px] text-slate-500">
-                            Current Stock
-                          </div>
-                          <div className="text-base font-bold text-slate-900">
-                            {projectStockRecord.currentStock}{" "}
-                            <span className="text-xs font-normal">
-                              {recognizedMaterial.unit}
-                            </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs">
+                        <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                          <div className="text-slate-400 text-[11px]">Current Stock</div>
+                          <div className="text-base font-black font-mono text-white mt-0.5">
+                            {projectStockRecord.currentStock} {recognizedMaterial.unit}
                           </div>
                         </div>
-                        <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                          <div className="text-[11px] text-slate-500">
-                            Reserved
-                          </div>
-                          <div className="text-base font-bold text-slate-700">
-                            {projectStockRecord.reservedStock}{" "}
-                            <span className="text-xs font-normal">
-                              {recognizedMaterial.unit}
-                            </span>
+                        <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                          <div className="text-slate-400 text-[11px]">Reserved</div>
+                          <div className="text-base font-black font-mono text-slate-300 mt-0.5">
+                            {projectStockRecord.reservedStock} {recognizedMaterial.unit}
                           </div>
                         </div>
-                        <div className="p-2.5 rounded-lg bg-teal-50 border border-teal-200">
-                          <div className="text-[11px] text-teal-800 font-semibold">
-                            Available Stock
-                          </div>
-                          <div className="text-base font-extrabold text-teal-900">
-                            {stockMetrics.availableStock}{" "}
-                            <span className="text-xs font-normal">
-                              {recognizedMaterial.unit}
-                            </span>
+                        <div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                          <div className="text-amber-400 text-[11px] font-bold">Available Stock</div>
+                          <div className="text-base font-black font-mono text-amber-300 mt-0.5">
+                            {stockMetrics.availableStock} {recognizedMaterial.unit}
                           </div>
                         </div>
-                        <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                          <div className="text-[11px] text-slate-500">
-                            Reorder Point
-                          </div>
-                          <div className="text-base font-bold text-slate-800">
-                            {stockMetrics.reorderPoint}{" "}
-                            <span className="text-xs font-normal">
-                              {recognizedMaterial.unit}
-                            </span>
-                          </div>
-                        </div>
-                        <div
-                          className={`p-2.5 rounded-lg border ${
-                            stockMetrics.isCriticalShortage
-                              ? "bg-rose-50 border-rose-200 text-rose-900"
-                              : "bg-slate-50 border-slate-200 text-slate-900"
-                          }`}
-                        >
-                          <div className="text-[11px] opacity-75 font-medium">
-                            Stock Coverage
-                          </div>
-                          <div className="text-base font-extrabold">
-                            {stockMetrics.stockCoverageDays ?? "N/A"} days
+                        <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                          <div className="text-slate-400 text-[11px]">Stock Coverage</div>
+                          <div className="text-base font-black font-mono text-white mt-0.5">
+                            {stockMetrics.stockCoverageDays ?? "N/A"} Days
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 bg-slate-50 px-3 py-2 rounded-lg border border-slate-200">
-                        <span>
-                          <strong>Incoming Stock (Separate per FR-M02-001):</strong>{" "}
-                          {projectStockRecord.incomingStock}{" "}
-                          {recognizedMaterial.unit} |{" "}
-                          <strong>Daily Burn:</strong>{" "}
-                          {projectStockRecord.avgDailyConsumption}{" "}
-                          {recognizedMaterial.unit}/day
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800 text-xs">
+                        <span className="text-slate-400">
+                          Daily Burn: <strong className="text-slate-200">{projectStockRecord.avgDailyConsumption} {recognizedMaterial.unit}/day</strong> • Reorder Point: <strong className="text-slate-200">{stockMetrics.reorderPoint} {recognizedMaterial.unit}</strong>
                         </span>
-                        {crossProjectStock.length > 0 && (
-                          <span className="text-teal-700 font-semibold">
-                            Cross-Site Stock:{" "}
-                            {crossProjectStock
-                              .map(
-                                (c) =>
-                                  `${c.projectCode} has ${computeInventoryMetrics(c).availableStock} ${recognizedMaterial.unit} available`
-                              )
-                              .join(" • ")}
-                          </span>
-                        )}
+                        <button
+                          onClick={() => onNavigateTab("M02_INVENTORY")}
+                          className="text-amber-400 hover:text-amber-300 font-bold underline"
+                        >
+                          View Full Stock & Movements →
+                        </button>
                       </div>
                     </div>
                   ) : (
-                    <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg">
-                      No active on-site stock record for{" "}
-                      {recognizedMaterial.materialCode} at {projectCode}. Check
-                      matching external vendors below.
+                    <div className="text-xs text-slate-400 bg-slate-950 p-3 rounded-lg border border-slate-800">
+                      No stock record found for {recognizedMaterial.materialCode} in {projectCode}. Check approved suppliers below.
                     </div>
                   )}
                 </div>
 
-                {/* 3. AUTOMATIC VENDOR INFO & DEFECT SCORECARD CHECK ON UPLOAD */}
-                <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                {/* C. Approved Providers / Suppliers for this Material */}
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-md space-y-3">
+                  <div className="flex items-center justify-between">
                     <div>
-                      <span className="text-xs font-bold uppercase tracking-wider text-teal-700">
-                        Step 4 • Linked Vendor Stock, Price & Defect Evaluation
-                        (M01 + M03)
+                      <span className="text-[10px] font-mono font-bold uppercase text-emerald-400">
+                        APPROVED PROVIDERS & SUPPLIERS
                       </span>
-                      <h4 className="text-base font-bold text-slate-900">
-                        Matching Suppliers for {recognizedMaterial.name}
+                      <h4 className="text-sm font-bold text-white">
+                        Suppliers for {recognizedMaterial.name} ({matchingVendors.length})
                       </h4>
                     </div>
-                    <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-amber-100 text-amber-900 border border-amber-300">
-                      SIMULATED VENDOR DATA (BR-018)
-                    </span>
+                    <button
+                      onClick={() => onNavigateTab("M01_VENDOR")}
+                      className="text-xs text-emerald-400 hover:text-emerald-300 underline font-bold"
+                    >
+                      Compare All Vendors →
+                    </button>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-xs">
-                      <thead>
-                        <tr className="border-b border-slate-200 text-slate-500 bg-slate-50">
-                          <th className="py-2 px-2.5">Vendor</th>
-                          <th className="py-2 px-2.5">Unit Price</th>
-                          <th className="py-2 px-2.5">
-                            External Stock (BR-004/005)
-                          </th>
-                          <th className="py-2 px-2.5">Lead Time</th>
-                          <th className="py-2 px-2.5">
-                            Live Evaluation Score (M03)
-                          </th>
-                          <th className="py-2 px-2.5">Worker/Eng Defects</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {matchingScanVendors.map((v) => {
-                          const prod = v.products.find(
-                            (p) =>
-                              p.materialCode === recognizedMaterial.materialCode
-                          )!;
-                          const vendorDefects = defects.filter(
-                            (d) => d.vendorCode === v.vendorCode
-                          );
-                          return (
-                            <tr key={v.vendorCode} className="hover:bg-slate-50">
-                              <td className="py-2.5 px-2.5 font-semibold text-slate-900">
-                                {v.name}{" "}
-                                <span className="text-slate-400 font-mono">
-                                  ({v.vendorCode})
-                                </span>
-                                <div className="text-[11px] font-normal text-slate-500">
-                                  {v.distanceKm} km away • CIDB {v.cidbGrade}
-                                </div>
-                              </td>
-                              <td className="py-2.5 px-2.5 font-bold text-slate-900">
-                                RM {prod.unitPriceRm.toLocaleString()}/
-                                {recognizedMaterial.unit}
-                              </td>
-                              <td className="py-2.5 px-2.5">
-                                <span className="font-bold text-teal-700">
-                                  {prod.availableExternalQty.toLocaleString()}{" "}
-                                  {recognizedMaterial.unit}
-                                </span>
-                                <div className="text-[10px] text-slate-400">
-                                  As of {prod.lastUpdated}
-                                </div>
-                              </td>
-                              <td className="py-2.5 px-2.5 font-semibold">
-                                {prod.leadTimeDays} days
-                              </td>
-                              <td className="py-2.5 px-2.5">
-                                <span
-                                  className={`inline-block px-2 py-0.5 rounded font-bold ${
-                                    v.performance.evaluationStatus ===
-                                    "PREFERRED"
-                                      ? "bg-emerald-100 text-emerald-800"
-                                      : v.performance.evaluationStatus ===
-                                          "WATCHLIST"
-                                        ? "bg-amber-100 text-amber-800"
-                                        : "bg-rose-100 text-rose-800"
-                                  }`}
-                                >
-                                  {v.performance.overallScore}% •{" "}
-                                  {v.performance.evaluationStatus}
-                                </span>
-                              </td>
-                              <td className="py-2.5 px-2.5">
-                                {vendorDefects.length > 0 ? (
-                                  <span className="text-rose-700 font-semibold">
-                                    {vendorDefects.length} logged (
-                                    {v.performance.openDefectsCount} open)
-                                  </span>
-                                ) : (
-                                  <span className="text-emerald-700">
-                                    0 open defects
-                                  </span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2 justify-end">
-                    <button
-                      onClick={() => {
-                        setSelectedMaterialForVendor(
-                          recognizedMaterial.materialCode
-                        );
-                        onNavigateTab("M01_VENDOR");
-                      }}
-                      className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-semibold"
-                    >
-                      Compare Vendors in Detail →
-                    </button>
-                    <button
-                      onClick={() => onNavigateTab("M03_QUALITY")}
-                      className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold"
-                    >
-                      Reflect / Report Delivery Defect (M03) →
-                    </button>
+                  <div className="space-y-2">
+                    {matchingVendors.map((v) => {
+                      const prod = v.products.find(
+                        (p) => p.materialCode === recognizedMaterial.materialCode
+                      );
+                      return (
+                        <div
+                          key={v.vendorCode}
+                          className="p-3 rounded-lg bg-slate-950 border border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs"
+                        >
+                          <div>
+                            <div className="font-bold text-white flex items-center gap-2">
+                              <span>{v.name}</span>
+                              <span className="text-[10px] font-mono text-slate-400">({v.vendorCode})</span>
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                Score: {v.performance.overallScore}%
+                              </span>
+                            </div>
+                            <div className="text-slate-400 text-[11px] mt-0.5">
+                              Lead Time: <strong className="text-slate-200">{prod?.leadTimeDays ?? v.products[0]?.leadTimeDays ?? 3} days</strong> • Min Order: <strong className="text-slate-200">{prod?.minOrderQty ?? 10} {recognizedMaterial.unit}</strong>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-black font-mono text-amber-400">
+                              RM {prod?.unitPriceRm.toFixed(2) ?? "—"} / {recognizedMaterial.unit}
+                            </div>
+                            <div className="text-[10px] text-emerald-400 font-bold">
+                              {v.performance.evaluationStatus} TIER
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </>
@@ -629,307 +453,145 @@ export function ScannerAndVendorModules({
     );
   }
 
-  // M01_VENDOR: Catalogue Search, Multi-Vendor Comparison & Explainable AI Vendor Recommendation
-  const filteredCatalogue = materials.filter((m) => {
-    const q = searchQuery.toLowerCase();
-    return (
-      m.name.toLowerCase().includes(q) ||
-      m.materialCode.toLowerCase().includes(q) ||
-      m.category.toLowerCase().includes(q) ||
-      m.brand.toLowerCase().includes(q) ||
-      m.specifications.toLowerCase().includes(q)
-    );
-  });
-
-  const targetMat =
-    materials.find((m) => m.materialCode === selectedMaterialForVendor) ||
-    materials[0];
-
-  const comparableVendors = vendors
-    .filter((v) =>
-      v.products.some((p) => p.materialCode === targetMat.materialCode)
-    )
-    .map((v) => {
-      const prod = v.products.find(
-        (p) => p.materialCode === targetMat.materialCode
-      )!;
-      // Composite balance score for AI recommendation
-      const balanceRankScore =
-        v.performance.overallScore * 0.55 +
-        (100 / Math.max(1, prod.leadTimeDays)) * 0.25 +
-        Math.min(100, prod.availableExternalQty / 10) * 0.2;
-      return {
-        vendor: v,
-        product: prod,
-        balanceRankScore,
-      };
-    })
-    .sort((a, b) => {
-      if (recommendationGoal === "LOWEST_PRICE")
-        return a.product.unitPriceRm - b.product.unitPriceRm;
-      if (recommendationGoal === "SHORTEST_LEAD")
-        return a.product.leadTimeDays - b.product.leadTimeDays;
-      if (recommendationGoal === "HIGHEST_STOCK")
-        return (
-          b.product.availableExternalQty - a.product.availableExternalQty
-        );
-      if (recommendationGoal === "BEST_PERFORMANCE")
-        return (
-          b.vendor.performance.overallScore - a.vendor.performance.overallScore
-        );
-      return b.balanceRankScore - a.balanceRankScore;
-    });
-
-  const aiRecommended = comparableVendors[0];
-
+  // =========================================================================
+  // M03: VENDOR FINDER
+  // =========================================================================
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <div>
-            <span className="text-xs font-bold uppercase tracking-wider text-teal-700">
-              MODULE 01 • FR-M01-003 TO FR-M01-006
-            </span>
-            <h2 className="text-xl font-bold text-slate-900">
-              Material Catalogue & Multi-Vendor Intelligence Comparison
-            </h2>
-          </div>
-          <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-amber-100 text-amber-900 border border-amber-300">
-            DATA SOURCE: SIMULATED MARKETPLACE API (BR-018 / TC-023)
+      {/* Header */}
+      <div className="bg-slate-900 border border-slate-800 text-white rounded-xl p-5 shadow-lg flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+            MODULE 03 • VENDOR FINDER & COMPARISON
           </span>
+          <h2 className="text-xl font-extrabold mt-1">
+            Construction Vendor Finder & Multi-Criteria Evaluation
+          </h2>
+          <p className="text-slate-400 text-xs mt-0.5">
+            Compare approved contractors and material suppliers across price, lead time, historical defect rate, and quality score.
+          </p>
         </div>
+        <button
+          onClick={() => onNavigateTab("M03_QUALITY")}
+          className="px-3.5 py-2 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs shadow-md"
+        >
+          🛡️ View Defect Log & Vendor Score →
+        </button>
+      </div>
 
-        {/* Search Input */}
-        <div className="flex flex-wrap gap-3 mb-4">
+      {/* Filter and Search Bar */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-md flex flex-wrap items-center gap-3 text-xs">
+        <div className="flex-1 min-w-[220px]">
           <input
             type="text"
-            placeholder="Search material catalogue by name, code (CEM-001, STL-002), category, brand, or BS/MS spec..."
+            placeholder="Search vendor name, code, trade specialty..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 min-w-[260px] rounded-lg border border-slate-300 px-3.5 py-2 text-sm"
+            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-amber-500"
           />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-slate-400 font-mono">Category:</span>
           <select
-            value={selectedMaterialForVendor}
-            onChange={(e) => setSelectedMaterialForVendor(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold bg-slate-50"
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="bg-slate-950 border border-slate-700 text-white rounded-lg px-2.5 py-2 focus:outline-none"
           >
-            {materials.map((m) => (
-              <option key={m.materialCode} value={m.materialCode}>
-                Compare Vendors for: {m.materialCode} – {m.name}
-              </option>
-            ))}
+            <option value="ALL">All Categories</option>
+            <option value="Steel">Steel & Rebar</option>
+            <option value="Concrete">Concrete & Aggregates</option>
+            <option value="Cement">Cement</option>
+            <option value="Finishes">Finishes & Architectural</option>
           </select>
         </div>
-
-        {/* Catalogue Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {filteredCatalogue.map((m) => (
-            <div
-              key={m.materialCode}
-              onClick={() => setSelectedMaterialForVendor(m.materialCode)}
-              className={`cursor-pointer p-3.5 rounded-xl border transition-all text-xs ${
-                selectedMaterialForVendor === m.materialCode
-                  ? "border-teal-600 bg-teal-50/50 shadow-sm"
-                  : "border-slate-200 hover:border-slate-300 bg-white"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="font-mono font-bold text-teal-700">
-                  {m.materialCode}
-                </span>
-                <span className="px-2 py-0.5 bg-slate-100 rounded text-slate-600">
-                  Unit: {m.unit}
-                </span>
-              </div>
-              <div className="font-bold text-slate-900 text-sm">{m.name}</div>
-              <div className="text-slate-500 mt-1">
-                {m.category} • {m.brand}
-              </div>
-              <div className="text-slate-600 mt-1 line-clamp-2">
-                {m.specifications}
-              </div>
-            </div>
-          ))}
+        <div className="flex items-center gap-2">
+          <span className="text-slate-400 font-mono">Evaluation Tier:</span>
+          <select
+            value={selectedEvaluationStatus}
+            onChange={(e) => setSelectedEvaluationStatus(e.target.value)}
+            className="bg-slate-950 border border-slate-700 text-white rounded-lg px-2.5 py-2 focus:outline-none"
+          >
+            <option value="ALL">All Tiers</option>
+            <option value="PREFERRED">PREFERRED Tier</option>
+            <option value="WATCHLIST">WATCHLIST Tier</option>
+            <option value="RESTRICTED">RESTRICTED Tier</option>
+          </select>
         </div>
       </div>
 
-      {/* Vendor Comparison & AI Recommendation */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm space-y-5">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h3 className="text-lg font-bold text-slate-900">
-              Vendor Comparison for {targetMat.name} ({targetMat.materialCode})
-            </h3>
-            <p className="text-xs text-slate-500">
-              External supplier stock is displayed separately from internal{" "}
-              {projectCode} inventory (BR-004) with last-updated timestamps
-              (BR-005).
-            </p>
-          </div>
-          <div className="flex items-center gap-2 text-xs">
-            <span className="font-semibold text-slate-700">
-              Optimization Criteria (FR-M01-006):
-            </span>
-            <select
-              value={recommendationGoal}
-              onChange={(e) =>
-                setRecommendationGoal(
-                  e.target.value as typeof recommendationGoal
-                )
-              }
-              className="rounded-lg border border-slate-300 px-3 py-1.5 font-semibold bg-slate-50"
-            >
-              <option value="BEST_BALANCE">Best Overall Balance (AI Default)</option>
-              <option value="LOWEST_PRICE">Lowest Unit Price</option>
-              <option value="SHORTEST_LEAD">Shortest Delivery Lead Time</option>
-              <option value="HIGHEST_STOCK">Highest External Available Stock</option>
-              <option value="BEST_PERFORMANCE">
-                Best Historical Vendor Performance
-              </option>
-            </select>
-          </div>
-        </div>
-
-        {/* AI Recommendation Banner */}
-        {aiRecommended && (
-          <div className="p-4 rounded-xl bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200 flex flex-wrap items-center justify-between gap-4">
-            <div className="space-y-1 max-w-3xl">
-              <div className="flex items-center gap-2">
-                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-700 text-white">
-                  ★ AI VENDOR RECOMMENDATION
-                </span>
-                <span className="text-sm font-bold text-teal-950">
-                  {aiRecommended.vendor.name} ({aiRecommended.vendor.vendorCode})
+      {/* Vendor Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredVendors.map((v) => (
+          <div
+            key={v.vendorCode}
+            className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-xl p-4 shadow-md space-y-3 flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/30">
+                    {v.vendorCode}
+                  </span>
+                  <h3 className="font-extrabold text-white text-base mt-1">
+                    {v.name}
+                  </h3>
+                  <div className="text-xs text-slate-400">{v.tradeSpecialty}</div>
+                </div>
+                <span
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${
+                    v.performance.evaluationStatus === "PREFERRED"
+                      ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                      : v.performance.evaluationStatus === "WATCHLIST"
+                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
+                        : "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                  }`}
+                >
+                  {v.performance.evaluationStatus}
                 </span>
               </div>
-              <p className="text-xs text-slate-700">
-                <strong>Explainable AI Rationale (FR-M01-006):</strong> Selected
-                under criterion{" "}
-                <span className="font-mono font-semibold">
-                  {recommendationGoal}
-                </span>
-                . Offers{" "}
-                <strong>
-                  RM {aiRecommended.product.unitPriceRm.toLocaleString()}/
-                  {targetMat.unit}
-                </strong>
-                ,{" "}
-                <strong>
-                  {aiRecommended.product.availableExternalQty.toLocaleString()}{" "}
-                  {targetMat.unit}
-                </strong>{" "}
-                external stock (updated {aiRecommended.product.lastUpdated}),{" "}
-                <strong>{aiRecommended.product.leadTimeDays}-day</strong>{" "}
-                delivery lead time, and a historical vendor performance score of{" "}
-                <strong>
-                  {aiRecommended.vendor.performance.overallScore}% (
-                  {aiRecommended.vendor.performance.evaluationStatus})
-                </strong>
-                . {aiRecommended.vendor.performance.aiRiskSummary}
-              </p>
+
+              {/* Metrics Grid */}
+              <div className="grid grid-cols-3 gap-2 text-center text-xs mt-3 pt-3 border-t border-slate-800">
+                <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
+                  <div className="text-[10px] text-slate-400">Score</div>
+                  <div className="text-base font-black font-mono text-amber-400">
+                    {v.performance.overallScore}%
+                  </div>
+                </div>
+                <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
+                  <div className="text-[10px] text-slate-400">On-Time</div>
+                  <div className="text-base font-black font-mono text-white">
+                    {v.performance.onTimeDeliveryRate}%
+                  </div>
+                </div>
+                <div className="bg-slate-950 p-2 rounded-lg border border-slate-800">
+                  <div className="text-[10px] text-slate-400">Quality</div>
+                  <div className="text-base font-black font-mono text-emerald-400">
+                    {v.performance.qualityAcceptanceRate}%
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 text-xs space-y-1">
+                <div className="flex justify-between text-slate-400">
+                  <span>Standard Lead Time:</span>
+                  <strong className="text-white">{v.products[0]?.leadTimeDays ?? 3} days</strong>
+                </div>
+                <div className="flex justify-between text-slate-400">
+                  <span>Open Site Defects:</span>
+                  <strong className={v.performance.openDefectsCount > 0 ? "text-rose-400" : "text-emerald-400"}>
+                    {v.performance.openDefectsCount} defects
+                  </strong>
+                </div>
+              </div>
+            </div>
+
+            {/* AI Risk Summary */}
+            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] text-slate-300">
+              <strong className="text-amber-400">AI Risk Note:</strong> {v.performance.aiRiskSummary}
             </div>
           </div>
-        )}
-
-        {/* Comparison Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="bg-slate-100 text-slate-600 border-b border-slate-200">
-                <th className="py-3 px-3">Vendor & Contact</th>
-                <th className="py-3 px-3">Spec Match</th>
-                <th className="py-3 px-3">Unit Price (RM)</th>
-                <th className="py-3 px-3">External Stock (BR-004/005)</th>
-                <th className="py-3 px-3">MOQ & Lead Time</th>
-                <th className="py-3 px-3">Distance</th>
-                <th className="py-3 px-3">Vendor Scorecard (M03)</th>
-                <th className="py-3 px-3">Future Hiring Status</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-200">
-              {comparableVendors.map(({ vendor, product }, index) => (
-                <tr
-                  key={vendor.vendorCode}
-                  className={index === 0 ? "bg-teal-50/40" : "hover:bg-slate-50"}
-                >
-                  <td className="py-3 px-3">
-                    <div className="font-bold text-slate-900">
-                      {vendor.name}{" "}
-                      <span className="font-mono text-slate-500">
-                        ({vendor.vendorCode})
-                      </span>
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      {vendor.contactPerson} • {vendor.contactPhone}
-                    </div>
-                    <div className="text-[11px] text-slate-400">
-                      {vendor.address}
-                    </div>
-                  </td>
-                  <td className="py-3 px-3">
-                    {product.isExactSpecMatch ? (
-                      <span className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-semibold">
-                        Exact Match
-                      </span>
-                    ) : (
-                      <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">
-                        Alternative (Verify Spec)
-                      </span>
-                    )}
-                  </td>
-                  <td className="py-3 px-3 font-extrabold text-slate-900 text-sm">
-                    RM {product.unitPriceRm.toLocaleString()}
-                    <span className="text-xs font-normal text-slate-500">
-                      /{targetMat.unit}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3">
-                    <div className="font-bold text-teal-800">
-                      {product.availableExternalQty.toLocaleString()}{" "}
-                      {targetMat.unit}
-                    </div>
-                    <div className="text-[10px] text-slate-500">
-                      Updated: {product.lastUpdated} (SIMULATED)
-                    </div>
-                  </td>
-                  <td className="py-3 px-3">
-                    <div className="font-bold text-slate-900">
-                      {product.leadTimeDays} days lead time
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      MOQ: {product.minOrderQty} {targetMat.unit}
-                    </div>
-                  </td>
-                  <td className="py-3 px-3 font-semibold text-slate-700">
-                    {vendor.distanceKm} km
-                  </td>
-                  <td className="py-3 px-3">
-                    <div className="font-extrabold text-sm text-slate-900">
-                      {vendor.performance.overallScore}%
-                    </div>
-                    <div className="text-[11px] text-slate-500">
-                      OTIF: {vendor.performance.onTimeDeliveryRate}% | Quality:{" "}
-                      {vendor.performance.qualityAcceptanceRate}%
-                    </div>
-                  </td>
-                  <td className="py-3 px-3">
-                    <span
-                      className={`inline-block px-2.5 py-1 rounded-full font-bold text-[11px] ${
-                        vendor.performance.evaluationStatus === "PREFERRED"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : vendor.performance.evaluationStatus === "WATCHLIST"
-                            ? "bg-amber-100 text-amber-800"
-                            : "bg-rose-100 text-rose-800"
-                      }`}
-                    >
-                      {vendor.performance.evaluationStatus}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        ))}
       </div>
     </div>
   );
