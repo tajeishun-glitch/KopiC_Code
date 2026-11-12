@@ -59,9 +59,9 @@ export async function POST(
       scheduledDate,
       costRm = 1200,
       description = "",
-      userId = "usr-sup-01",
+      userId = "usr-sm-01",
       userName = "Ahmad Faiz Zulkifli",
-      userRole = "SITE_SUPERVISOR" as RoleType,
+      userRole = "SITE_MANAGER" as RoleType,
     } = body;
 
     // 1. ALLOCATE EQUIPMENT (FR-M04-004 & BR-012 / TC-022 Conflict Check)

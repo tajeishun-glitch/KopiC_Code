@@ -137,9 +137,18 @@ export function InventoryAndQualityModules({
   const [materialSearchQuery, setMaterialSearchQuery] = useState<string>("");
 
   // M02 Inventory Movement Form State
+  const defaultInvMode = perms.canSubmitConsumption ? "CONSUMPTION" : "RECEIPT";
   const [invModalMode, setInvModalMode] = useState<
     "CONSUMPTION" | "RECEIPT" | "TRANSFER"
-  >("CONSUMPTION");
+  >(defaultInvMode);
+  const effectiveInvMode =
+    invModalMode === "CONSUMPTION" && !perms.canSubmitConsumption
+      ? "RECEIPT"
+      : invModalMode === "RECEIPT" && !perms.canConfirmGoodsReceipt
+        ? "CONSUMPTION"
+        : invModalMode === "TRANSFER" && !perms.canTransferMaterialSurplus
+          ? defaultInvMode
+          : invModalMode;
   const [selectedMatCode, setSelectedMatCode] = useState<string>("STL-002");
   const [qtyInput, setQtyInput] = useState<number>(25);
   const [rejectedInput, setRejectedInput] = useState<number>(0);
@@ -537,36 +546,42 @@ export function InventoryAndQualityModules({
                 Record Site Inventory Movement
               </h3>
               <div className="flex gap-1 bg-slate-950 p-1 rounded-lg text-xs border border-slate-800">
-                <button
-                  onClick={() => setInvModalMode("CONSUMPTION")}
-                  className={`px-2.5 py-1 rounded font-semibold transition-all ${
-                    invModalMode === "CONSUMPTION"
-                      ? "bg-amber-500 text-slate-950 font-bold"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  Consumption
-                </button>
-                <button
-                  onClick={() => setInvModalMode("RECEIPT")}
-                  className={`px-2.5 py-1 rounded font-semibold transition-all ${
-                    invModalMode === "RECEIPT"
-                      ? "bg-amber-500 text-slate-950 font-bold"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  Goods Receipt
-                </button>
-                <button
-                  onClick={() => setInvModalMode("TRANSFER")}
-                  className={`px-2.5 py-1 rounded font-semibold transition-all ${
-                    invModalMode === "TRANSFER"
-                      ? "bg-amber-500 text-slate-950 font-bold"
-                      : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  Transfer
-                </button>
+                {perms.canSubmitConsumption && (
+                  <button
+                    onClick={() => setInvModalMode("CONSUMPTION")}
+                    className={`px-2.5 py-1 rounded font-semibold transition-all ${
+                      effectiveInvMode === "CONSUMPTION"
+                        ? "bg-amber-500 text-slate-950 font-bold"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    Consumption
+                  </button>
+                )}
+                {perms.canConfirmGoodsReceipt && (
+                  <button
+                    onClick={() => setInvModalMode("RECEIPT")}
+                    className={`px-2.5 py-1 rounded font-semibold transition-all ${
+                      effectiveInvMode === "RECEIPT"
+                        ? "bg-amber-500 text-slate-950 font-bold"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    Goods Receipt
+                  </button>
+                )}
+                {perms.canTransferMaterialSurplus && (
+                  <button
+                    onClick={() => setInvModalMode("TRANSFER")}
+                    className={`px-2.5 py-1 rounded font-semibold transition-all ${
+                      effectiveInvMode === "TRANSFER"
+                        ? "bg-amber-500 text-slate-950 font-bold"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    Transfer
+                  </button>
+                )}
               </div>
             </div>
 
@@ -596,7 +611,7 @@ export function InventoryAndQualityModules({
 
               <div>
                 <label className="block font-semibold text-slate-300 mb-1">
-                  {invModalMode === "RECEIPT" ? "Accepted Quantity" : "Quantity"}
+                  {effectiveInvMode === "RECEIPT" ? "Accepted Quantity" : "Quantity"}
                 </label>
                 <input
                   type="number"
@@ -607,7 +622,7 @@ export function InventoryAndQualityModules({
                 />
               </div>
 
-              {invModalMode === "CONSUMPTION" && (
+              {effectiveInvMode === "CONSUMPTION" && (
                 <div className="sm:col-span-2">
                   <label className="block font-semibold text-slate-300 mb-1">
                     Site Work Activity / Zone
@@ -621,7 +636,7 @@ export function InventoryAndQualityModules({
                 </div>
               )}
 
-              {invModalMode === "RECEIPT" && (
+              {effectiveInvMode === "RECEIPT" && (
                 <>
                   <div>
                     <label className="block font-semibold text-slate-300 mb-1">
@@ -665,7 +680,7 @@ export function InventoryAndQualityModules({
                 </>
               )}
 
-              {invModalMode === "TRANSFER" && (
+              {effectiveInvMode === "TRANSFER" && (
                 <div className="sm:col-span-2">
                   <label className="block font-semibold text-slate-300 mb-1">
                     Destination Project
@@ -705,7 +720,7 @@ export function InventoryAndQualityModules({
               </span>
               <button
                 onClick={() => {
-                  if (invModalMode === "CONSUMPTION") {
+                  if (effectiveInvMode === "CONSUMPTION") {
                     onRecordConsumption({
                       materialCode: selectedMatCode,
                       quantity: qtyInput,
@@ -713,12 +728,14 @@ export function InventoryAndQualityModules({
                       remarks: remarksInput,
                     });
                     setFeedbackMsg(
-                      `✓ Recorded ${qtyInput} consumption of ${selectedMatCode}.`
+                      perms.canVerifyConsumption
+                        ? `✓ Recorded & verified ${qtyInput} consumption of ${selectedMatCode}.`
+                        : `✓ Submitted ${qtyInput} consumption of ${selectedMatCode} (Pending Site Manager/PM verification).`
                     );
-                  } else if (invModalMode === "RECEIPT") {
+                  } else if (effectiveInvMode === "RECEIPT") {
                     if (!perms.canConfirmGoodsReceipt) {
                       setFeedbackMsg(
-                        "⚠ RBAC Notice: Site Workers cannot directly confirm Goods Receipts. Switch to Supervisor, Engineer, or PM."
+                        "⚠ RBAC Notice: Only Procurement or Project Manager roles can confirm Goods Receipts."
                       );
                       return;
                     }
@@ -734,6 +751,12 @@ export function InventoryAndQualityModules({
                       `✓ Goods Receipt ${deliveryRefInput} confirmed: +${qtyInput} added to stock.`
                     );
                   } else {
+                    if (!perms.canTransferMaterialSurplus) {
+                      setFeedbackMsg(
+                        "⚠ RBAC Notice: Only Project Manager or Procurement Manager can execute inter-project transfers."
+                      );
+                      return;
+                    }
                     onTransferMaterial({
                       destProjectCode: destProjCode,
                       materialCode: selectedMatCode,
@@ -747,11 +770,13 @@ export function InventoryAndQualityModules({
                 }}
                 className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs shadow-md"
               >
-                {invModalMode === "CONSUMPTION"
-                  ? "Submit Consumption"
-                  : invModalMode === "RECEIPT"
-                    ? "Confirm Receipt"
-                    : "Execute Transfer"}
+                {effectiveInvMode === "CONSUMPTION"
+                  ? perms.canVerifyConsumption
+                    ? "Verify & Record Consumption"
+                    : "Submit Consumption (Pending)"
+                  : effectiveInvMode === "RECEIPT"
+                    ? "Confirm Goods Receipt"
+                    : "Execute Surplus Transfer"}
               </button>
             </div>
           </div>
@@ -1134,45 +1159,53 @@ export function InventoryAndQualityModules({
                       </span>
                     </div>
 
-                    {/* Status Dropdown + Confirmation Save Button */}
+                    {/* Status Dropdown + Confirmation Save Button (Managers & PM only) */}
                     <div className="flex items-center gap-2">
-                      <select
-                        value={currentPendingStatus}
-                        onChange={(e) => {
-                          const newSt = e.target.value as SeedDefectRecord["status"];
-                          setPendingStatuses((prev) => ({
-                            ...prev,
-                            [d.defectCode]: newSt,
-                          }));
-                        }}
-                        className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] font-bold text-white focus:outline-none"
-                      >
-                        <option value="OPEN">OPEN</option>
-                        <option value="IN_PROGRESS">IN_PROGRESS</option>
-                        <option value="RESOLVED">RESOLVED</option>
-                        <option value="CLOSED">CLOSED</option>
-                      </select>
+                      {perms.canUpdateDefectStatus ? (
+                        <>
+                          <select
+                            value={currentPendingStatus}
+                            onChange={(e) => {
+                              const newSt = e.target.value as SeedDefectRecord["status"];
+                              setPendingStatuses((prev) => ({
+                                ...prev,
+                                [d.defectCode]: newSt,
+                              }));
+                            }}
+                            className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-[11px] font-bold text-white focus:outline-none"
+                          >
+                            <option value="OPEN">OPEN</option>
+                            <option value="IN_PROGRESS">IN_PROGRESS</option>
+                            <option value="RESOLVED">RESOLVED</option>
+                            <option value="CLOSED">CLOSED</option>
+                          </select>
 
-                      {hasStatusChange && (
-                        <button
-                          onClick={() => {
-                            onUpdateDefectStatus(d.defectCode, currentPendingStatus);
-                            setStatusSaveMsg((prev) => ({
-                              ...prev,
-                              [d.defectCode]: `Saved by ${currentUser.name}`,
-                            }));
-                            setTimeout(() => {
-                              setStatusSaveMsg((prev) => {
-                                const copy = { ...prev };
-                                delete copy[d.defectCode];
-                                return copy;
-                              });
-                            }, 3000);
-                          }}
-                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-[11px] shadow animate-pulse"
-                        >
-                          Save
-                        </button>
+                          {hasStatusChange && (
+                            <button
+                              onClick={() => {
+                                onUpdateDefectStatus(d.defectCode, currentPendingStatus);
+                                setStatusSaveMsg((prev) => ({
+                                  ...prev,
+                                  [d.defectCode]: `Saved by ${currentUser.name}`,
+                                }));
+                                setTimeout(() => {
+                                  setStatusSaveMsg((prev) => {
+                                    const copy = { ...prev };
+                                    delete copy[d.defectCode];
+                                    return copy;
+                                  });
+                                }, 3000);
+                              }}
+                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded text-[11px] shadow animate-pulse"
+                            >
+                              Save
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-[10px] font-mono text-slate-400">
+                          Status: <strong className="text-amber-400">{d.status}</strong> (Manager Approval Required)
+                        </span>
                       )}
                     </div>
                   </div>
@@ -1247,7 +1280,8 @@ export function InventoryAndQualityModules({
         </div>
       </div>
 
-      {/* Bottom Section: Live Vendor Performance Scorecard (Reduced Section Size, Top 3 Only + View More to Vendor Finder) */}
+      {/* Bottom Section: Live Vendor Performance Scorecard (Only for PM & Procurement Roles) */}
+      {perms.canViewVendorPerformance && (
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
@@ -1265,7 +1299,7 @@ export function InventoryAndQualityModules({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {onNavigateTab && (
+            {onNavigateTab && perms.canViewProcurementAndYard && (
               <button
                 onClick={() => onNavigateTab("M01_VENDOR")}
                 className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow flex items-center gap-1.5 transition-all"
@@ -1353,7 +1387,7 @@ export function InventoryAndQualityModules({
               Showing top 3 of <strong className="text-white">{vendors.length}</strong> site vendors. More than 3 vendors registered.
             </div>
             <div className="flex items-center gap-2">
-              {onNavigateTab && (
+              {onNavigateTab && perms.canViewProcurementAndYard && (
                 <button
                   onClick={() => onNavigateTab("M01_VENDOR")}
                   className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow transition-all"
@@ -1436,6 +1470,7 @@ export function InventoryAndQualityModules({
           </div>
         )}
       </div>
+      )}
 
       {/* Defect Photo Lightbox Modal */}
       {defectPhotoModal && (

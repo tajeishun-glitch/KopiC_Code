@@ -17,6 +17,7 @@ import {
   runScenarioSimulation,
   SimulationInput,
   SimulationResult,
+  getRolePermissions,
 } from "@/lib/business-engine";
 
 interface EquipmentProgressRiskProps {
@@ -69,6 +70,7 @@ export function EquipmentProgressRiskModules({
   onUpdateMilestoneProgress,
   onUpdateRisk,
 }: EquipmentProgressRiskProps) {
+  const perms = getRolePermissions(currentUser.role);
   // M05 Progress State
   const projMilestones = milestones.filter(
     (m) => m.projectCode === projectCode
@@ -115,8 +117,12 @@ export function EquipmentProgressRiskModules({
     },
   ]);
 
+  const defaultSimType: SimulationInput["scenarioType"] =
+    perms.accessDomain === "CONSTRUCTION"
+      ? "EQUIPMENT_BREAKDOWN"
+      : "DELIVERY_DELAY";
   const [simType, setSimType] =
-    useState<SimulationInput["scenarioType"]>("DELIVERY_DELAY");
+    useState<SimulationInput["scenarioType"]>(defaultSimType);
   const [simMatCode, setSimMatCode] = useState<string>("STL-002");
   const [simEqCode, setSimEqCode] = useState<string>("EQ-EX-001");
   const [simDelayDays, setSimDelayDays] = useState<number>(3);
@@ -906,10 +912,28 @@ export function EquipmentProgressRiskModules({
               }
               className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white font-semibold focus:outline-none"
             >
-              <option value="DELIVERY_DELAY">1. Material Delivery Delay (+N Days)</option>
-              <option value="PRICE_INCREASE">2. Material Unit Price Surge (+X%)</option>
-              <option value="EQUIPMENT_BREAKDOWN">3. Critical Plant Breakdown</option>
-              <option value="CONSUMPTION_SURGE">4. Site Consumption Surge (+X%)</option>
+              {(perms.accessDomain === "FULL" ||
+                perms.accessDomain === "MATERIAL") && (
+                <>
+                  <option value="DELIVERY_DELAY">
+                    1. Material Delivery Delay (+N Days)
+                  </option>
+                  <option value="PRICE_INCREASE">
+                    2. Material Unit Price Surge (+X%)
+                  </option>
+                </>
+              )}
+              {(perms.accessDomain === "FULL" ||
+                perms.accessDomain === "CONSTRUCTION") && (
+                <>
+                  <option value="EQUIPMENT_BREAKDOWN">
+                    3. Critical Plant Breakdown
+                  </option>
+                  <option value="CONSUMPTION_SURGE">
+                    4. Site Consumption Surge (+X%)
+                  </option>
+                </>
+              )}
             </select>
           </div>
 
@@ -1080,23 +1104,29 @@ export function EquipmentProgressRiskModules({
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-slate-400">Owner: {r.riskOwner}</span>
-                  <select
-                    value={r.status}
-                    onChange={(e) =>
-                      onUpdateRisk({
-                        riskCode: r.riskCode,
-                        status: e.target.value as SeedRisk["status"],
-                        riskOwner: r.riskOwner,
-                      })
-                    }
-                    className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white"
-                  >
-                    <option value="OPEN">OPEN</option>
-                    <option value="ACKNOWLEDGED">ACKNOWLEDGED</option>
-                    <option value="IN_PROGRESS">IN_PROGRESS</option>
-                    <option value="RESOLVED">RESOLVED</option>
-                    <option value="CLOSED">CLOSED</option>
-                  </select>
+                  {perms.canAssignRiskActions ? (
+                    <select
+                      value={r.status}
+                      onChange={(e) =>
+                        onUpdateRisk({
+                          riskCode: r.riskCode,
+                          status: e.target.value as SeedRisk["status"],
+                          riskOwner: r.riskOwner,
+                        })
+                      }
+                      className="rounded border border-slate-700 bg-slate-900 px-2 py-1 text-xs text-white"
+                    >
+                      <option value="OPEN">OPEN</option>
+                      <option value="ACKNOWLEDGED">ACKNOWLEDGED</option>
+                      <option value="IN_PROGRESS">IN_PROGRESS</option>
+                      <option value="RESOLVED">RESOLVED</option>
+                      <option value="CLOSED">CLOSED</option>
+                    </select>
+                  ) : (
+                    <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-[10px] font-mono text-amber-400">
+                      {r.status} (Manager Control)
+                    </span>
+                  )}
                 </div>
               </div>
 

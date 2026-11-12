@@ -9,7 +9,7 @@ async function main() {
   fs.writeFileSync(dbPath, JSON.stringify(state, null, 2), "utf-8");
 
   console.log(`✓ Seeded ${state.projects.length} Gamuda Projects (${state.projects.map((p) => p.projectCode).join(", ")})`);
-  console.log(`✓ Seeded ${state.users.length} Role Accounts (Project Manager, Site Engineer, Site Supervisor, Site Worker)`);
+  console.log(`✓ Seeded ${state.users.length} Role Accounts (Project Manager, Site Manager, Site Engineer)`);
   console.log(`✓ Seeded ${state.materials.length} Construction Materials & ${state.vendors.length} Vendors/Subcontractors`);
   console.log(`✓ Seeded ${state.inventory.length} Live Inventory Records & ${state.transactions.length} Transactions`);
   console.log(`✓ Seeded ${state.defects.length} Site Defect Logs & ${state.inspections.length} Quality Inspections`);

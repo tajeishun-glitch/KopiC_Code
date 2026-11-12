@@ -6,46 +6,49 @@
       "name": "Ir. Razak Ahmad",
       "email": "razak.ahmad@gamuda.com.my",
       "role": "PROJECT_MANAGER",
-      "title": "Senior Project Manager (Infrastructure & Transit)",
+      "title": "Senior Project Manager (Global Infrastructure & Transit)",
       "assignedProjectCodes": [
         "PRJ-ALPHA",
         "PRJ-BETA",
-        "PRJ-GAMMA"
+        "PRJ-GAMMA",
+        "PRJ-SYDNEY",
+        "PRJ-SG-CRL",
+        "PRJ-UK-HS2",
+        "PRJ-TW-TY"
+      ]
+    },
+    {
+      "id": "usr-sm-01",
+      "userCode": "USR-002",
+      "name": "Ahmad Faiz Zulkifli",
+      "email": "faiz.zulkifli@gamuda.com.my",
+      "role": "SITE_MANAGER",
+      "title": "Senior Site Construction Manager",
+      "assignedProjectCodes": [
+        "PRJ-ALPHA",
+        "PRJ-BETA",
+        "PRJ-GAMMA",
+        "PRJ-SYDNEY",
+        "PRJ-SG-CRL",
+        "PRJ-UK-HS2",
+        "PRJ-TW-TY"
       ]
     },
     {
       "id": "usr-eng-01",
-      "userCode": "USR-002",
+      "userCode": "USR-003",
       "name": "Engr. Mei Ling Tan",
       "email": "meiling.tan@gamuda.com.my",
       "role": "SITE_ENGINEER",
-      "title": "Lead Structural & QA/QC Site Engineer",
+      "title": "Lead Structural & Field Site Engineer",
       "assignedProjectCodes": [
         "PRJ-ALPHA",
-        "PRJ-GAMMA"
-      ]
-    },
-    {
-      "id": "usr-sup-01",
-      "userCode": "USR-003",
-      "name": "Ahmad Faiz Zulkifli",
-      "email": "faiz.zulkifli@gamuda.com.my",
-      "role": "SITE_SUPERVISOR",
-      "title": "Senior Site Operations Supervisor",
-      "assignedProjectCodes": [
-        "PRJ-ALPHA",
-        "PRJ-BETA"
-      ]
-    },
-    {
-      "id": "usr-wrk-01",
-      "userCode": "USR-004",
-      "name": "Muthu Krishnan",
-      "email": "muthu.k@site.gamuda.com.my",
-      "role": "SITE_WORKER",
-      "title": "Structural Foreperson & Yard Crew Lead",
-      "assignedProjectCodes": [
-        "PRJ-ALPHA"
+        "PRJ-BETA",
+        "PRJ-GAMMA",
+        "PRJ-SYDNEY",
+        "PRJ-SG-CRL",
+        "PRJ-UK-HS2",
+        "PRJ-TW-TY"
       ]
     }
   ],
@@ -54,7 +57,8 @@
       "id": "prj-alpha",
       "projectCode": "PRJ-ALPHA",
       "name": "Project Alpha – MRT3 Titiwangsa Underground Station (CMC302)",
-      "location": "Titiwangsa, Kuala Lumpur",
+      "region": "Malaysia",
+      "location": "Titiwangsa, Kuala Lumpur, Malaysia",
       "projectManagerName": "Ir. Razak Ahmad",
       "startDate": "2026-01-15",
       "plannedEndDate": "2027-08-30",
@@ -70,7 +74,8 @@
       "id": "prj-beta",
       "projectCode": "PRJ-BETA",
       "name": "Project Beta – Penang Silicon Island Marine Bridge Pkg 2",
-      "location": "Bayan Lepas, Penang",
+      "region": "Malaysia",
+      "location": "Bayan Lepas, Penang, Malaysia",
       "projectManagerName": "Ir. Razak Ahmad",
       "startDate": "2026-03-01",
       "plannedEndDate": "2027-11-30",
@@ -86,7 +91,8 @@
       "id": "prj-gamma",
       "projectCode": "PRJ-GAMMA",
       "name": "Project Gamma – Gamuda Cove IBS Commercial Podium",
-      "location": "Dengkil, Selangor",
+      "region": "Malaysia",
+      "location": "Dengkil, Selangor, Malaysia",
       "projectManagerName": "Ir. Razak Ahmad",
       "startDate": "2026-02-10",
       "plannedEndDate": "2027-04-15",
@@ -97,6 +103,74 @@
       "status": "DELAYED",
       "plannedCompletion": 75,
       "actualCompletion": 62
+    },
+    {
+      "id": "prj-sydney",
+      "projectCode": "PRJ-SYDNEY",
+      "name": "Project Sydney – Sydney Metro West Western Tunnelling (WTP)",
+      "region": "Australia",
+      "location": "Sydney Olympic Park & Westmead, NSW, Australia",
+      "projectManagerName": "Ir. Razak Ahmad",
+      "startDate": "2025-06-01",
+      "plannedEndDate": "2028-12-15",
+      "actualEndDate": null,
+      "budgetRm": 3800000000,
+      "spentRm": 1450000000,
+      "equipmentRentalRm": 42000000,
+      "status": "ON_TRACK",
+      "plannedCompletion": 48,
+      "actualCompletion": 46
+    },
+    {
+      "id": "prj-sg-crl",
+      "projectCode": "PRJ-SG-CRL",
+      "name": "Project Singapore – Cross Island Line Defu Station & Tunnels (CR112)",
+      "region": "Singapore",
+      "location": "Defu Industrial Park, Singapore",
+      "projectManagerName": "Ir. Razak Ahmad",
+      "startDate": "2025-09-01",
+      "plannedEndDate": "2029-06-30",
+      "actualEndDate": null,
+      "budgetRm": 1650000000,
+      "spentRm": 510000000,
+      "equipmentRentalRm": 18500000,
+      "status": "ON_TRACK",
+      "plannedCompletion": 35,
+      "actualCompletion": 34
+    },
+    {
+      "id": "prj-uk-hs2",
+      "projectCode": "PRJ-UK-HS2",
+      "name": "Project UK – London Underground & Rail Civil Works",
+      "region": "United Kingdom",
+      "location": "Greater London / West Ruislip, UK",
+      "projectManagerName": "Ir. Razak Ahmad",
+      "startDate": "2024-11-01",
+      "plannedEndDate": "2028-09-30",
+      "actualEndDate": null,
+      "budgetRm": 2900000000,
+      "spentRm": 1200000000,
+      "equipmentRentalRm": 35000000,
+      "status": "AT_RISK",
+      "plannedCompletion": 52,
+      "actualCompletion": 45
+    },
+    {
+      "id": "prj-tw-ty",
+      "projectCode": "PRJ-TW-TY",
+      "name": "Project Taiwan – Taoyuan City Underground Railway Package CJ18",
+      "region": "Taiwan",
+      "location": "Taoyuan City / Pingzhen, Taiwan",
+      "projectManagerName": "Ir. Razak Ahmad",
+      "startDate": "2025-01-10",
+      "plannedEndDate": "2028-05-20",
+      "actualEndDate": null,
+      "budgetRm": 2100000000,
+      "spentRm": 740000000,
+      "equipmentRentalRm": 22000000,
+      "status": "ON_TRACK",
+      "plannedCompletion": 38,
+      "actualCompletion": 37
     }
   ],
   "materials": [
@@ -646,6 +720,90 @@
       "supplierLeadTimeDays": 3,
       "unitCostRm": 48.5,
       "lastUpdated": "2026-11-12 10:15"
+    },
+    {
+      "id": "inv-syd-stl",
+      "projectCode": "PRJ-SYDNEY",
+      "materialCode": "STL-002",
+      "currentStock": 1450,
+      "reservedStock": 120,
+      "incomingStock": 600,
+      "minStock": 400,
+      "safetyStock": 150,
+      "avgDailyConsumption": 85,
+      "supplierLeadTimeDays": 5,
+      "unitCostRm": 2850,
+      "lastUpdated": "2026-11-12 11:00"
+    },
+    {
+      "id": "inv-syd-con",
+      "projectCode": "PRJ-SYDNEY",
+      "materialCode": "CON-004",
+      "currentStock": 520,
+      "reservedStock": 60,
+      "incomingStock": 300,
+      "minStock": 120,
+      "safetyStock": 50,
+      "avgDailyConsumption": 60,
+      "supplierLeadTimeDays": 1,
+      "unitCostRm": 360,
+      "lastUpdated": "2026-11-12 11:00"
+    },
+    {
+      "id": "inv-sg-cem",
+      "projectCode": "PRJ-SG-CRL",
+      "materialCode": "CEM-001",
+      "currentStock": 890,
+      "reservedStock": 80,
+      "incomingStock": 400,
+      "minStock": 250,
+      "safetyStock": 100,
+      "avgDailyConsumption": 55,
+      "supplierLeadTimeDays": 2,
+      "unitCostRm": 23.5,
+      "lastUpdated": "2026-11-12 10:30"
+    },
+    {
+      "id": "inv-sg-stl",
+      "projectCode": "PRJ-SG-CRL",
+      "materialCode": "STL-002",
+      "currentStock": 680,
+      "reservedStock": 50,
+      "incomingStock": 200,
+      "minStock": 200,
+      "safetyStock": 80,
+      "avgDailyConsumption": 40,
+      "supplierLeadTimeDays": 4,
+      "unitCostRm": 2800,
+      "lastUpdated": "2026-11-12 10:30"
+    },
+    {
+      "id": "inv-uk-stl",
+      "projectCode": "PRJ-UK-HS2",
+      "materialCode": "STL-002",
+      "currentStock": 420,
+      "reservedStock": 50,
+      "incomingStock": 150,
+      "minStock": 300,
+      "safetyStock": 120,
+      "avgDailyConsumption": 65,
+      "supplierLeadTimeDays": 6,
+      "unitCostRm": 3100,
+      "lastUpdated": "2026-11-12 09:45"
+    },
+    {
+      "id": "inv-tw-con",
+      "projectCode": "PRJ-TW-TY",
+      "materialCode": "CON-004",
+      "currentStock": 380,
+      "reservedStock": 40,
+      "incomingStock": 200,
+      "minStock": 100,
+      "safetyStock": 45,
+      "avgDailyConsumption": 35,
+      "supplierLeadTimeDays": 2,
+      "unitCostRm": 330,
+      "lastUpdated": "2026-11-12 10:00"
     }
   ],
   "transactions": [
@@ -657,10 +815,10 @@
       "transactionType": "CONSUMPTION",
       "quantity": 95,
       "workActivity": "Concourse Level B2 Diaphragm Wall Cage Fixing",
-      "recordedBy": "Muthu Krishnan",
-      "recordedByRole": "SITE_WORKER",
+      "recordedBy": "Engr. Mei Ling Tan",
+      "recordedByRole": "SITE_ENGINEER",
       "verificationStatus": "VERIFIED",
-      "remarks": "Verified by Site Supervisor Ahmad Faiz against B2 bar bending schedule.",
+      "remarks": "Verified by Site Manager Ahmad Faiz against B2 bar bending schedule.",
       "transactionDate": "2026-11-12 08:15"
     },
     {
@@ -673,7 +831,7 @@
       "deliveryRef": "DO-APEX-7741",
       "vendorName": "Apex Steel & Metal Trading Sdn Bhd",
       "recordedBy": "Ahmad Faiz Zulkifli",
-      "recordedByRole": "SITE_SUPERVISOR",
+      "recordedByRole": "SITE_MANAGER",
       "verificationStatus": "VERIFIED",
       "remarks": "Partial acceptance: 80 MT delivered, 56 MT confirmed into inventory, 24 MT rejected for heavy pitting rust (BR-007 & BR-009).",
       "transactionDate": "2026-11-11 16:40"
@@ -686,8 +844,8 @@
       "transactionType": "CONSUMPTION",
       "quantity": 55,
       "workActivity": "Station Box Base Slab Screeding & Grouting",
-      "recordedBy": "Muthu Krishnan",
-      "recordedByRole": "SITE_WORKER",
+      "recordedBy": "Ahmad Faiz Zulkifli",
+      "recordedByRole": "SITE_MANAGER",
       "verificationStatus": "VERIFIED",
       "remarks": "Daily cement draw for Zone A & Zone B grouting.",
       "transactionDate": "2026-11-11 17:30"
@@ -702,7 +860,7 @@
       "deliveryRef": "DO-YTL-9920",
       "vendorName": "YTL Cement Marketing Sdn Bhd",
       "recordedBy": "Ahmad Faiz Zulkifli",
-      "recordedByRole": "SITE_SUPERVISOR",
+      "recordedByRole": "SITE_MANAGER",
       "verificationStatus": "VERIFIED",
       "remarks": "100% passed quality inspection. Dry bags stacked in Weatherproof Silo Bay 2.",
       "transactionDate": "2026-11-10 11:05"
@@ -764,9 +922,9 @@
       "category": "Poor product quality",
       "severity": "CRITICAL",
       "rejectedQty": 24,
-      "description": "Worker Muthu Krishnan flagged heavy surface pitting corrosion and 14.8mm undersized rib diameter on 3 bundles (24 MT) of T16 rebar delivered by Apex Steel.",
-      "reportedBy": "Muthu Krishnan",
-      "reportedByRole": "SITE_WORKER",
+      "description": "Engr. Mei Ling Tan flagged heavy surface pitting corrosion and 14.8mm undersized rib diameter on 3 bundles (24 MT) of T16 rebar delivered by Apex Steel.",
+      "reportedBy": "Engr. Mei Ling Tan",
+      "reportedByRole": "SITE_ENGINEER",
       "reportedDate": "2026-11-11",
       "photoUrl": "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80",
       "status": "OPEN",
@@ -793,7 +951,7 @@
       "rejectedQty": 0,
       "description": "Delivery arrived 4 days late and short by 35 MT against scheduled call-off, delaying Zone B reinforcement cage assembly.",
       "reportedBy": "Ahmad Faiz Zulkifli",
-      "reportedByRole": "SITE_SUPERVISOR",
+      "reportedByRole": "SITE_MANAGER",
       "reportedDate": "2026-11-06",
       "status": "IN_PROGRESS",
       "correctiveActions": [
@@ -842,8 +1000,8 @@
       "severity": "LOW",
       "rejectedQty": 28,
       "description": "1 pallet (28 m2) of 600x600mm homogeneous tiles had fork-lift corner strap damage upon unloading.",
-      "reportedBy": "Muthu Krishnan",
-      "reportedByRole": "SITE_WORKER",
+      "reportedBy": "Ahmad Faiz Zulkifli",
+      "reportedByRole": "SITE_MANAGER",
       "reportedDate": "2026-11-04",
       "status": "RESOLVED",
       "correctiveActions": [
@@ -1202,6 +1360,74 @@
       "budgetAllocatedRm": 95000000,
       "actualSpentRm": 68400000,
       "status": "DELAYED"
+    },
+    {
+      "id": "ms-syd-01",
+      "milestoneCode": "MS-SYD-01",
+      "projectCode": "PRJ-SYDNEY",
+      "name": "Twin Tunnel TBM Driving (Westmead to Sydney Olympic Park)",
+      "subcontractorCode": "V003",
+      "subcontractorName": "MetroSteel / Tunnelling Joint Venture",
+      "responsibleTeam": "TBM Operations Team A",
+      "plannedStartDate": "2025-08-01",
+      "plannedEndDate": "2027-10-30",
+      "actualStartDate": "2025-08-10",
+      "plannedProgress": 48,
+      "actualProgress": 46,
+      "budgetAllocatedRm": 1800000000,
+      "actualSpentRm": 720000000,
+      "status": "ON_TRACK"
+    },
+    {
+      "id": "ms-sg-01",
+      "milestoneCode": "MS-SG-01",
+      "projectCode": "PRJ-SG-CRL",
+      "name": "Defu Station Box Diaphragm Wall & Deep Excavation",
+      "subcontractorCode": "V001",
+      "subcontractorName": "YTL / Singapore Civils Consortium",
+      "responsibleTeam": "Deep Basement Team",
+      "plannedStartDate": "2025-10-01",
+      "plannedEndDate": "2027-06-30",
+      "actualStartDate": "2025-10-01",
+      "plannedProgress": 35,
+      "actualProgress": 34,
+      "budgetAllocatedRm": 850000000,
+      "actualSpentRm": 280000000,
+      "status": "ON_TRACK"
+    },
+    {
+      "id": "ms-uk-01",
+      "milestoneCode": "MS-UK-01",
+      "projectCode": "PRJ-UK-HS2",
+      "name": "North Portal Crossover Box & Shaft Sinking",
+      "subcontractorCode": "V003",
+      "subcontractorName": "Gamuda UK Civils Joint Venture",
+      "responsibleTeam": "Shaft Sinking Team 1",
+      "plannedStartDate": "2025-03-01",
+      "plannedEndDate": "2027-04-30",
+      "actualStartDate": "2025-03-15",
+      "plannedProgress": 52,
+      "actualProgress": 45,
+      "budgetAllocatedRm": 1400000000,
+      "actualSpentRm": 620000000,
+      "status": "DELAYED"
+    },
+    {
+      "id": "ms-tw-01",
+      "milestoneCode": "MS-TW-01",
+      "projectCode": "PRJ-TW-TY",
+      "name": "Pingzhen Cut-and-Cover Tunnel Box Construction",
+      "subcontractorCode": "V005",
+      "subcontractorName": "Taiwan Engineering & Concrete Group",
+      "responsibleTeam": "Railway Civils Team",
+      "plannedStartDate": "2025-02-01",
+      "plannedEndDate": "2027-11-30",
+      "actualStartDate": "2025-02-05",
+      "plannedProgress": 38,
+      "actualProgress": 37,
+      "budgetAllocatedRm": 950000000,
+      "actualSpentRm": 360000000,
+      "status": "ON_TRACK"
     }
   ],
   "progressUpdates": [
@@ -1366,6 +1592,57 @@
       "riskOwner": "Ir. Razak Ahmad",
       "status": "OPEN",
       "identifiedDate": "2026-11-12"
+    },
+    {
+      "id": "rsk-007",
+      "riskCode": "RSK-SYD-001",
+      "projectCode": "PRJ-SYDNEY",
+      "category": "EQUIPMENT",
+      "title": "Port Kembla TBM Cutterhead Tooling Logistics Delay (NSW)",
+      "description": "Maritime freight customs clearance on specialized tungsten carbide disc cutters delayed by 4 days due to Port Kembla terminal congestion.",
+      "sourceData": "Sydney Port Manifest & Supply Chain Logistics Tracker (Updated 2026-11-12 08:30)",
+      "likelihood": 3,
+      "impact": 4,
+      "riskScore": 12,
+      "riskLevel": "HIGH",
+      "recommendedAction": "Activate local Australian precision tooling supplier backup inventory and adjust TBM maintenance shift window.",
+      "riskOwner": "Ir. Razak Ahmad",
+      "status": "OPEN",
+      "identifiedDate": "2026-11-12"
+    },
+    {
+      "id": "rsk-008",
+      "riskCode": "RSK-SG-001",
+      "projectCode": "PRJ-SG-CRL",
+      "category": "PROJECT",
+      "title": "Deep Basement Groundwater Inflow Monitoring at Defu Station",
+      "description": "Piezometer sensor readings indicate elevated hydrostatic pressure near diaphragm wall panel D-14 following seasonal heavy rainfall.",
+      "sourceData": "LTA Automated Geotechnical Instrumentation Monitoring System (Updated 2026-11-12 09:15)",
+      "likelihood": 3,
+      "impact": 4,
+      "riskScore": 12,
+      "riskLevel": "HIGH",
+      "recommendedAction": "Initiate secondary dewatering recharge well cycle and conduct GPR void scanning behind panel D-14.",
+      "riskOwner": "Ir. Razak Ahmad",
+      "status": "OPEN",
+      "identifiedDate": "2026-11-12"
+    },
+    {
+      "id": "rsk-009",
+      "riskCode": "RSK-UK-001",
+      "projectCode": "PRJ-UK-HS2",
+      "category": "MATERIAL",
+      "title": "Winter Supply Chain Freeze on High-Strength Low-Carbon Grout",
+      "description": "UK logistics transit freeze affecting daily delivery of BS EN 197 CEM III/A blast-furnace slag blended cement to West Ruislip shaft.",
+      "sourceData": "National Highways & Rail Freight Advisory Network (Updated 2026-11-12 07:00)",
+      "likelihood": 4,
+      "impact": 4,
+      "riskScore": 16,
+      "riskLevel": "HIGH",
+      "recommendedAction": "Maintain minimum 10-day buffer silo capacity on-site and pre-order heated transport tankers.",
+      "riskOwner": "Ir. Razak Ahmad",
+      "status": "OPEN",
+      "identifiedDate": "2026-11-12"
     }
   ],
   "notifications": [
@@ -1378,9 +1655,8 @@
       "relatedRef": "CEM-001",
       "priority": "HIGH",
       "targetRoles": [
-        "SITE_SUPERVISOR",
-        "SITE_ENGINEER",
-        "PROJECT_MANAGER"
+        "PROJECT_MANAGER",
+        "SITE_MANAGER"
       ],
       "targetModule": "M02",
       "isRead": false,
@@ -1395,8 +1671,8 @@
       "relatedRef": "STL-002",
       "priority": "CRITICAL",
       "targetRoles": [
-        "SITE_SUPERVISOR",
-        "PROJECT_MANAGER"
+        "PROJECT_MANAGER",
+        "SITE_MANAGER"
       ],
       "targetModule": "M02",
       "isRead": false,
@@ -1407,12 +1683,12 @@
       "alertCode": "AL-004",
       "projectCode": "PRJ-ALPHA",
       "title": "Material Quality Rejection: 24 MT Corroded Rebar (DO-APEX-7741)",
-      "description": "Worker Muthu Krishnan & Engr. Mei Ling Tan rejected 24 MT T16 rebar from Apex Steel due to surface pitting corrosion.",
+      "description": "Engr. Mei Ling Tan rejected 24 MT T16 rebar from Apex Steel due to surface pitting corrosion.",
       "relatedRef": "DEF-2026-101",
       "priority": "CRITICAL",
       "targetRoles": [
         "SITE_ENGINEER",
-        "SITE_SUPERVISOR",
+        "SITE_MANAGER",
         "PROJECT_MANAGER"
       ],
       "targetModule": "M03",
@@ -1428,8 +1704,8 @@
       "relatedRef": "V002",
       "priority": "HIGH",
       "targetRoles": [
-        "SITE_ENGINEER",
-        "PROJECT_MANAGER"
+        "PROJECT_MANAGER",
+        "SITE_MANAGER"
       ],
       "targetModule": "M03",
       "isRead": false,
@@ -1444,7 +1720,8 @@
       "relatedRef": "EQ-CR-002",
       "priority": "MEDIUM",
       "targetRoles": [
-        "SITE_SUPERVISOR",
+        "SITE_MANAGER",
+        "SITE_ENGINEER",
         "PROJECT_MANAGER"
       ],
       "targetModule": "M04",
@@ -1460,7 +1737,8 @@
       "relatedRef": "EQ-EX-001",
       "priority": "HIGH",
       "targetRoles": [
-        "SITE_SUPERVISOR",
+        "SITE_MANAGER",
+        "SITE_ENGINEER",
         "PROJECT_MANAGER"
       ],
       "targetModule": "M04",
@@ -1472,13 +1750,13 @@
       "alertCode": "AL-008",
       "projectCode": "PRJ-ALPHA",
       "title": "Equipment Reported Damaged: Rebar Cutter/Bender (EQ-RB-004)",
-      "description": "Hydraulic pressure seal burst reported by Muthu Krishnan at Steel Fabrication Yard 1.",
+      "description": "Hydraulic pressure seal burst reported at Steel Fabrication Yard 1.",
       "relatedRef": "EQ-RB-004",
       "priority": "HIGH",
       "targetRoles": [
-        "SITE_SUPERVISOR",
-        "PROJECT_MANAGER",
-        "SITE_WORKER"
+        "SITE_MANAGER",
+        "SITE_ENGINEER",
+        "PROJECT_MANAGER"
       ],
       "targetModule": "M04",
       "isRead": false,
@@ -1494,7 +1772,7 @@
       "priority": "HIGH",
       "targetRoles": [
         "SITE_ENGINEER",
-        "SITE_SUPERVISOR",
+        "SITE_MANAGER",
         "PROJECT_MANAGER"
       ],
       "targetModule": "M05",
@@ -1511,9 +1789,8 @@
       "priority": "CRITICAL",
       "targetRoles": [
         "PROJECT_MANAGER",
-        "SITE_SUPERVISOR",
-        "SITE_ENGINEER",
-        "SITE_WORKER"
+        "SITE_MANAGER",
+        "SITE_ENGINEER"
       ],
       "targetModule": "M06",
       "isRead": false,
@@ -1524,9 +1801,9 @@
     {
       "id": "aud-001",
       "auditCode": "AUD-2026-001",
-      "userId": "usr-wrk-01",
-      "userName": "Muthu Krishnan",
-      "userRole": "SITE_WORKER",
+      "userId": "usr-eng-01",
+      "userName": "Engr. Mei Ling Tan",
+      "userRole": "SITE_ENGINEER",
       "projectCode": "PRJ-ALPHA",
       "module": "M03 - Quality & Vendor Intelligence",
       "action": "REPORT_VENDOR_DEFECT",
@@ -1538,9 +1815,9 @@
     {
       "id": "aud-002",
       "auditCode": "AUD-2026-002",
-      "userId": "usr-sup-01",
+      "userId": "usr-sm-01",
       "userName": "Ahmad Faiz Zulkifli",
-      "userRole": "SITE_SUPERVISOR",
+      "userRole": "SITE_MANAGER",
       "projectCode": "PRJ-ALPHA",
       "module": "M02 - Smart Live Inventory",
       "action": "CONFIRM_GOODS_RECEIPT",

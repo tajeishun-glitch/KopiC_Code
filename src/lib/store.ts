@@ -166,7 +166,7 @@ export function checkAndTriggerLowStockAlert(
       description: `Available stock is ${metrics.availableStock} ${mat.unit} (Reorder Point: ${metrics.reorderPoint} ${mat.unit}). Estimated coverage: ${metrics.stockCoverageDays ?? "N/A"} days.`,
       relatedRef: mat.materialCode,
       priority: metrics.isCriticalShortage ? "CRITICAL" : "HIGH",
-      targetRoles: ["PROJECT_MANAGER", "SITE_SUPERVISOR", "SITE_ENGINEER"],
+      targetRoles: ["PROJECT_MANAGER", "SITE_MANAGER"],
       targetModule: "M02",
       isRead: false,
       createdAt: formatNow(),

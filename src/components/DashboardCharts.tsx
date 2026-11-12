@@ -13,6 +13,7 @@ interface DashboardChartsProps {
   inventory: SeedInventoryItem[];
   defects: SeedDefectRecord[];
   risks: SeedRisk[];
+  accessDomain?: "FULL" | "CONSTRUCTION" | "MATERIAL";
   onNavigateTab: (tab: string) => void;
 }
 
@@ -21,8 +22,13 @@ export function DashboardCharts({
   inventory,
   defects,
   risks,
+  accessDomain = "FULL",
   onNavigateTab,
 }: DashboardChartsProps) {
+  const showConstructionChart =
+    accessDomain === "FULL" || accessDomain === "CONSTRUCTION";
+  const showMaterialChart =
+    accessDomain === "FULL" || accessDomain === "MATERIAL";
   const [activePieIndex, setActivePieIndex] = useState<number | null>(null);
   const [activeCurveMonth, setActiveCurveMonth] = useState<number | null>(null);
 
@@ -81,7 +87,8 @@ export function DashboardCharts({
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
       {/* 1. S-CURVE PROJECT PROGRESS & MILESTONE TRACKER (Line/Area Chart) */}
-      <div className="lg:col-span-8 bg-slate-900 border border-slate-700/80 rounded-xl p-5 shadow-lg relative overflow-hidden">
+      {showConstructionChart && (
+      <div className={`${showMaterialChart ? "lg:col-span-8" : "lg:col-span-12"} bg-slate-900 border border-slate-700/80 rounded-xl p-5 shadow-lg relative overflow-hidden`}>
         {/* Engineering Grid / Blueprint Background Accent */}
         <div className="absolute inset-0 opacity-5 pointer-events-none bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px]" />
 
@@ -249,14 +256,20 @@ export function DashboardCharts({
           {activeCurveMonth === null && (
             <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400 font-mono px-1">
               <span>Status: <strong className="text-rose-400">{currentProject.actualCompletion - currentProject.plannedCompletion}% Behind Schedule</strong> on Structural Work</span>
-              <span>Project Budget: <strong className="text-slate-200">RM {(currentProject.budgetRm / 1e6).toFixed(1)}M</strong> (Spent: RM {(currentProject.spentRm / 1e6).toFixed(1)}M)</span>
+              {accessDomain === "FULL" ? (
+                <span>Project Budget: <strong className="text-slate-200">RM {(currentProject.budgetRm / 1e6).toFixed(1)}M</strong> (Spent: RM {(currentProject.spentRm / 1e6).toFixed(1)}M)</span>
+              ) : (
+                <span> Scope: <strong className="text-sky-400">Construction &amp; Site Engineering View</strong></span>
+              )}
             </div>
           )}
         </div>
       </div>
+      )}
 
       {/* 2. MATERIAL INVENTORY SPEND BREAKDOWN (Interactive Donut / Pie Chart) */}
-      <div className="lg:col-span-4 bg-slate-900 border border-slate-700/80 rounded-xl p-5 shadow-lg flex flex-col justify-between">
+      {showMaterialChart && (
+      <div className={`${showConstructionChart ? "lg:col-span-4" : "lg:col-span-12"} bg-slate-900 border border-slate-700/80 rounded-xl p-5 shadow-lg flex flex-col justify-between`}>
         <div>
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
@@ -328,6 +341,7 @@ export function DashboardCharts({
           ))}
         </div>
       </div>
+      )}
     </div>
   );
 }

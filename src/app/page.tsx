@@ -46,6 +46,7 @@ import { DroneVisionModal } from "@/components/DroneVisionModal";
 import { MaterialScannerModal } from "@/components/MaterialScannerModal";
 import { WhatsAppSiteBotModal } from "@/components/WhatsAppSiteBotModal";
 import { ProjectBlueprintModal } from "@/components/ProjectBlueprintModal";
+import { LoginPage } from "@/components/LoginPage";
 
 type NavTab =
   | "DASHBOARD"
@@ -69,6 +70,7 @@ type RegionFilter =
 export default function BuildSmartAIApp() {
   // Core Reactive Application State
   const [users] = useState<SeedUser[]>(INITIAL_USERS);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<SeedUser>(INITIAL_USERS[0]); // Default: Project Manager
   const [selectedRegion, setSelectedRegion] = useState<RegionFilter>("ALL");
   const [selectedProjectCode, setSelectedProjectCode] =
@@ -205,7 +207,7 @@ export default function BuildSmartAIApp() {
     workActivity: string;
     remarks: string;
   }) => {
-    const isVerified = currentUser.role !== "SITE_WORKER";
+    const isVerified = perms.canVerifyConsumption;
     setInventory((prev) =>
       prev.map((inv) => {
         if (
@@ -257,7 +259,7 @@ export default function BuildSmartAIApp() {
       module: "M02 - Smart Live Inventory",
       action: isVerified
         ? "RECORD_VERIFIED_CONSUMPTION"
-        : "SUBMIT_WORKER_CONSUMPTION",
+        : "SUBMIT_ENGINEER_CONSUMPTION",
       recordId: txnCode,
       previousValue: `${materialCode} consumption logged`,
       newValue: `-${quantity} ${materialCode} (${workActivity})`,
@@ -734,27 +736,40 @@ export default function BuildSmartAIApp() {
     });
   };
 
-  // Categorized Sidebar Navigation Items (Construction Engineering Theme)
+  // Categorized Sidebar Navigation Items (Filtered by 3-Role RBAC Permissions)
   const navSections = [
     {
       group: "COMMAND & OVERVIEW",
       items: [
         { id: "DASHBOARD" as NavTab, label: "Dashboard", icon: "📊", badge: undefined },
-        { id: "NOTIFICATIONS_AUDIT" as NavTab, label: "Alerts & Audit Trail", icon: "🔔", badge: unreadCount },
+        ...(perms.canViewAlertsAndAudit
+          ? [
+              {
+                id: "NOTIFICATIONS_AUDIT" as NavTab,
+                label: "Alerts & Audit Trail",
+                icon: "🔔",
+                badge: unreadCount,
+              },
+            ]
+          : []),
       ],
     },
-    {
-      group: "PROCUREMENT & YARD",
-      items: [
-        { id: "M01_VENDOR" as NavTab, label: "M03: Vendor Finder", icon: "🏢", badge: undefined },
-        {
-          id: "M02_INVENTORY" as NavTab,
-          label: "M04: Live Inventory Info",
-          icon: "📦",
-          badge: projInventory.filter((i) => computeInventoryMetrics(i).isBelowReorderPoint).length,
-        },
-      ],
-    },
+    ...(perms.canViewProcurementAndYard
+      ? [
+          {
+            group: "PROCUREMENT & YARD",
+            items: [
+              { id: "M01_VENDOR" as NavTab, label: "M03: Vendor Finder", icon: "🏢", badge: undefined },
+              {
+                id: "M02_INVENTORY" as NavTab,
+                label: "M04: Live Inventory Info",
+                icon: "📦",
+                badge: projInventory.filter((i) => computeInventoryMetrics(i).isBelowReorderPoint).length,
+              },
+            ],
+          },
+        ]
+      : []),
     {
       group: "QUALITY & DEFECTS",
       items: [
@@ -779,6 +794,50 @@ export default function BuildSmartAIApp() {
       ],
     },
   ];
+
+  const handleSwitchUser = (nextUser: SeedUser) => {
+    setCurrentUser(nextUser);
+    const nextPerms = getRolePermissions(nextUser.role);
+    if (!nextUser.assignedProjectCodes.includes(selectedProjectCode)) {
+      setSelectedProjectCode(nextUser.assignedProjectCodes[0] || "PRJ-ALPHA");
+    }
+    if (activeTab === "NOTIFICATIONS_AUDIT" && !nextPerms.canViewAlertsAndAudit) {
+      setActiveTab("DASHBOARD");
+    }
+    if (
+      (activeTab === "M01_VENDOR" || activeTab === "M02_INVENTORY") &&
+      !nextPerms.canViewProcurementAndYard
+    ) {
+      setActiveTab("DASHBOARD");
+    }
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <LoginPage
+        users={users}
+        onLoginSuccess={(loggedInUser) => {
+          handleSwitchUser(loggedInUser);
+          setIsAuthenticated(true);
+          const loginEntry: SeedAuditLog = {
+            id: `aud-${Date.now()}`,
+            auditCode: `AUD-2026-${String(auditLogs.length + 1).padStart(3, "0")}`,
+            userId: loggedInUser.id,
+            userName: loggedInUser.name,
+            userRole: loggedInUser.role,
+            projectCode: loggedInUser.assignedProjectCodes[0] || selectedProjectCode,
+            module: "IAM & RBAC Portal",
+            action: "OPERATOR_SIGN_IN",
+            recordId: loggedInUser.id,
+            previousValue: "Session: Unauthenticated",
+            newValue: `Authenticated as ${loggedInUser.role} (${getRolePermissions(loggedInUser.role).accessDomain} Access)`,
+            timestamp: nowTimestamp(),
+          };
+          setAuditLogs((prev) => [loginEntry, ...prev]);
+        }}
+      />
+    );
+  }
 
   // Extracted Main Body Content (Rendered identically in Laptop and Mobile Phone simulator)
   const renderMainBody = () => (
@@ -867,12 +926,22 @@ export default function BuildSmartAIApp() {
               {/* Quick Operational Metrics */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div
-                  onClick={() => setActiveTab("M02_INVENTORY")}
-                  className="cursor-pointer bg-slate-900 border border-slate-800 hover:border-amber-500/60 rounded-xl p-4 shadow-md transition-all group"
+                  onClick={() => {
+                    if (perms.canViewProcurementAndYard) {
+                      setActiveTab("M02_INVENTORY");
+                    }
+                  }}
+                  className={`${
+                    perms.canViewProcurementAndYard
+                      ? "cursor-pointer hover:border-amber-500/60"
+                      : "opacity-80 cursor-not-allowed"
+                  } bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-md transition-all group`}
                 >
                   <div className="flex justify-between items-center text-xs text-slate-400 font-mono">
                     <span>Critical Stock Reorder (M04)</span>
-                    <span className="text-slate-400 group-hover:text-amber-400">→</span>
+                    <span className="text-slate-400 group-hover:text-amber-400">
+                      {perms.canViewProcurementAndYard ? "→" : "🔒"}
+                    </span>
                   </div>
                   <div className="text-2xl font-black font-mono text-rose-400 mt-1">
                     {
@@ -933,6 +1002,7 @@ export default function BuildSmartAIApp() {
                 inventory={projInventory}
                 defects={projDefects}
                 risks={projRisks}
+                accessDomain={perms.accessDomain}
                 onNavigateTab={(t) => setActiveTab(t as NavTab)}
               />
 
@@ -1024,6 +1094,7 @@ export default function BuildSmartAIApp() {
               <ScannerAndVendorModules
                 activeTab={activeTab}
                 projectCode={selectedProjectCode}
+                userRole={currentUser.role}
                 materials={materials}
                 vendors={vendors}
                 inventory={inventory}
@@ -1355,7 +1426,7 @@ export default function BuildSmartAIApp() {
                 value={currentUser.id}
                 onChange={(e) => {
                   const found = users.find((u) => u.id === e.target.value);
-                  if (found) setCurrentUser(found);
+                  if (found) handleSwitchUser(found);
                 }}
                 className="bg-transparent text-sky-200 font-bold focus:outline-none cursor-pointer"
               >
@@ -1365,7 +1436,7 @@ export default function BuildSmartAIApp() {
                     value={u.id}
                     className="bg-slate-900 text-white"
                   >
-                    {u.role.replace("_", " ")} — {u.name}
+                    {u.role.replace(/_/g, " ")} — {u.name}
                   </option>
                 ))}
               </select>
@@ -1418,15 +1489,17 @@ export default function BuildSmartAIApp() {
               <span className="hidden sm:inline">Scanner</span>
             </button>
 
-            {/* TOP-RIGHT DRONE ICON (Across all pages) */}
-            <button
-              onClick={() => setIsDroneModalOpen(true)}
-              className="px-2.5 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/40 text-sky-300 font-mono font-bold text-xs flex items-center gap-1.5 transition-all shadow-md group"
-              title="Open Site Drone Vision Telemetry"
-            >
-              <span className="text-sm group-hover:scale-110 transition-transform">🛸</span>
-              <span className="hidden sm:inline">Drone Vision</span>
-            </button>
+            {/* TOP-RIGHT DRONE ICON (Only for PM, Site Manager & Site Engineer) */}
+            {perms.canViewDroneSiteProgress && (
+              <button
+                onClick={() => setIsDroneModalOpen(true)}
+                className="px-2.5 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/40 text-sky-300 font-mono font-bold text-xs flex items-center gap-1.5 transition-all shadow-md group"
+                title="Open Site Drone Vision Telemetry"
+              >
+                <span className="text-sm group-hover:scale-110 transition-transform">🛸</span>
+                <span className="hidden sm:inline">Drone Vision</span>
+              </button>
+            )}
 
             {/* TOP-RIGHT WHATSAPP ICON (Floating Window / Site Bot) */}
             <button
@@ -1461,6 +1534,16 @@ export default function BuildSmartAIApp() {
             >
               <span className="text-sm">{themeMode === "DARK" ? "🌙" : "☀️"}</span>
               <span className="hidden lg:inline">{themeMode === "DARK" ? "Dark" : "Light"}</span>
+            </button>
+
+            {/* SIGN OUT / SWITCH ACCOUNT BUTTON */}
+            <button
+              onClick={() => setIsAuthenticated(false)}
+              className="px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/40 text-rose-300 font-mono font-bold text-xs flex items-center gap-1.5 transition-all shadow-md"
+              title="Sign out and return to the Login Portal"
+            >
+              <span>🚪</span>
+              <span className="hidden sm:inline">Sign Out</span>
             </button>
           </div>
         </div>
@@ -1571,7 +1654,7 @@ export default function BuildSmartAIApp() {
               </div>
 
               {/* Sidebar Footer User / Project Badge */}
-              <div className="pt-4 mt-4 border-t border-slate-800/80 text-[11px] font-mono text-slate-400 space-y-1 bg-slate-950/50 p-2.5 rounded-lg border">
+              <div className="pt-4 mt-4 border-t border-slate-800/80 text-[11px] font-mono text-slate-400 space-y-1.5 bg-slate-950/50 p-2.5 rounded-lg border">
                 <div className="flex justify-between items-center">
                   <span className="text-slate-400 font-bold">OPERATOR:</span>
                   <span className="text-amber-400 font-bold truncate max-w-[120px]">{currentUser.name}</span>
@@ -1581,9 +1664,16 @@ export default function BuildSmartAIApp() {
                   <span className="text-sky-300 font-semibold">{currentUser.role}</span>
                 </div>
                 <div className="flex justify-between items-center text-[10px]">
-                  <span>REGION:</span>
-                  <span className="text-emerald-400 font-bold">{currentProject.region}</span>
+                  <span>ACCESS:</span>
+                  <span className="text-emerald-400 font-bold">{perms.accessDomain}</span>
                 </div>
+                <button
+                  onClick={() => setIsAuthenticated(false)}
+                  className="w-full mt-1.5 py-1.5 rounded bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-bold text-[10px] flex items-center justify-center gap-1 transition-all"
+                >
+                  <span>🚪</span>
+                  <span>Sign Out / Switch Role</span>
+                </button>
               </div>
             </aside>
           )}
@@ -1604,7 +1694,9 @@ export default function BuildSmartAIApp() {
         vendors={vendors}
         inventory={inventory}
         onNavigateToInventory={() => {
-          setActiveTab("M02_INVENTORY");
+          if (perms.canViewProcurementAndYard) {
+            setActiveTab("M02_INVENTORY");
+          }
         }}
       />
 
@@ -1612,6 +1704,8 @@ export default function BuildSmartAIApp() {
         isOpen={isDroneModalOpen}
         onClose={() => setIsDroneModalOpen(false)}
         projectCode={selectedProjectCode}
+        userRole={currentUser.role}
+        userName={currentUser.name}
       />
 
       {/* Floating WhatsApp Web & Site Bot Window */}

@@ -14,7 +14,12 @@ import {
 } from "./seed-data";
 
 export interface RolePermissions {
-  dashboardAccess: "FULL" | "VIEW" | "LIMITED";
+  dashboardAccess: "FULL" | "LIMITED_CONSTRUCTION" | "LIMITED_MATERIAL";
+  accessDomain: "FULL" | "CONSTRUCTION" | "MATERIAL";
+  canViewAlertsAndAudit: boolean;
+  canViewProcurementAndYard: boolean;
+  canViewDroneSiteProgress: boolean;
+  canControlDroneFlightOrCaptures: boolean;
   canUpdateProgress: boolean;
   canScanMaterial: boolean;
   canCompareVendors: boolean;
@@ -22,8 +27,10 @@ export interface RolePermissions {
   canVerifyConsumption: boolean;
   canSubmitConsumption: boolean;
   canConfirmGoodsReceipt: boolean;
+  canTransferMaterialSurplus: boolean;
   canPerformQualityInspection: boolean;
   canReportDefect: boolean;
+  canUpdateDefectStatus: boolean;
   canViewVendorPerformance: boolean;
   canManageEquipmentAllocation: boolean;
   canRequestEquipment: boolean;
@@ -36,8 +43,14 @@ export interface RolePermissions {
 export function getRolePermissions(role: RoleType): RolePermissions {
   switch (role) {
     case "PROJECT_MANAGER":
+      // Ir. Razak Ahmad: Full access across all modules
       return {
         dashboardAccess: "FULL",
+        accessDomain: "FULL",
+        canViewAlertsAndAudit: true,
+        canViewProcurementAndYard: true,
+        canViewDroneSiteProgress: true,
+        canControlDroneFlightOrCaptures: true,
         canUpdateProgress: true,
         canScanMaterial: true,
         canCompareVendors: true,
@@ -45,8 +58,10 @@ export function getRolePermissions(role: RoleType): RolePermissions {
         canVerifyConsumption: true,
         canSubmitConsumption: true,
         canConfirmGoodsReceipt: true,
+        canTransferMaterialSurplus: true,
         canPerformQualityInspection: true,
         canReportDefect: true,
+        canUpdateDefectStatus: true,
         canViewVendorPerformance: true,
         canManageEquipmentAllocation: true,
         canRequestEquipment: true,
@@ -55,9 +70,15 @@ export function getRolePermissions(role: RoleType): RolePermissions {
         canAssignRiskActions: true,
         canExecuteRiskActions: true,
       };
-    case "SITE_SUPERVISOR":
+    case "SITE_MANAGER":
+      // Ahmad Faiz Zulkifli: Full access EXCEPT Alerts & Audit Trail access
       return {
-        dashboardAccess: "VIEW",
+        dashboardAccess: "FULL",
+        accessDomain: "FULL",
+        canViewAlertsAndAudit: false,
+        canViewProcurementAndYard: true,
+        canViewDroneSiteProgress: true,
+        canControlDroneFlightOrCaptures: true,
         canUpdateProgress: true,
         canScanMaterial: true,
         canCompareVendors: true,
@@ -65,55 +86,45 @@ export function getRolePermissions(role: RoleType): RolePermissions {
         canVerifyConsumption: true,
         canSubmitConsumption: true,
         canConfirmGoodsReceipt: true,
+        canTransferMaterialSurplus: true,
         canPerformQualityInspection: true,
         canReportDefect: true,
+        canUpdateDefectStatus: true,
         canViewVendorPerformance: true,
         canManageEquipmentAllocation: true,
         canRequestEquipment: true,
         canApproveEquipmentTransfer: true,
         canManageMaintenance: true,
-        canAssignRiskActions: false,
+        canAssignRiskActions: true,
         canExecuteRiskActions: true,
       };
     case "SITE_ENGINEER":
+      // Engr. Mei Ling Tan: Full access EXCEPT Alerts & Audit Trail, Procurement & Yard access
       return {
-        dashboardAccess: "VIEW",
+        dashboardAccess: "LIMITED_CONSTRUCTION",
+        accessDomain: "CONSTRUCTION",
+        canViewAlertsAndAudit: false,
+        canViewProcurementAndYard: false,
+        canViewDroneSiteProgress: true,
+        canControlDroneFlightOrCaptures: true,
         canUpdateProgress: true,
         canScanMaterial: true,
-        canCompareVendors: true,
+        canCompareVendors: false,
         canManageInventory: false,
-        canVerifyConsumption: false,
-        canSubmitConsumption: true,
-        canConfirmGoodsReceipt: true,
-        canPerformQualityInspection: true,
-        canReportDefect: true,
-        canViewVendorPerformance: true,
-        canManageEquipmentAllocation: false,
-        canRequestEquipment: true,
-        canApproveEquipmentTransfer: false,
-        canManageMaintenance: false,
-        canAssignRiskActions: false,
-        canExecuteRiskActions: true,
-      };
-    case "SITE_WORKER":
-      return {
-        dashboardAccess: "LIMITED",
-        canUpdateProgress: false,
-        canScanMaterial: true,
-        canCompareVendors: true,
-        canManageInventory: false,
-        canVerifyConsumption: false,
+        canVerifyConsumption: true,
         canSubmitConsumption: true,
         canConfirmGoodsReceipt: false,
-        canPerformQualityInspection: false,
-        canReportDefect: true, // Workers explicitly reflect vendor defects on site for future evaluation
+        canTransferMaterialSurplus: false,
+        canPerformQualityInspection: true,
+        canReportDefect: true,
+        canUpdateDefectStatus: true,
         canViewVendorPerformance: true,
-        canManageEquipmentAllocation: false,
+        canManageEquipmentAllocation: true,
         canRequestEquipment: true,
-        canApproveEquipmentTransfer: false,
-        canManageMaintenance: false,
-        canAssignRiskActions: false,
-        canExecuteRiskActions: false,
+        canApproveEquipmentTransfer: true,
+        canManageMaintenance: true,
+        canAssignRiskActions: true,
+        canExecuteRiskActions: true,
       };
   }
 }

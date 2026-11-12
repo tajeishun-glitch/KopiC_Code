@@ -1,27 +1,60 @@
 "use client";
 
 import React, { useState } from "react";
+import { RoleType } from "@/lib/seed-data";
+import { getRolePermissions } from "@/lib/business-engine";
 
 interface DroneVisionModalProps {
   isOpen: boolean;
   onClose: () => void;
   projectCode: string;
+  userRole?: RoleType;
+  userName?: string;
 }
 
 export function DroneVisionModal({
   isOpen,
   onClose,
   projectCode,
+  userRole = "PROJECT_MANAGER",
+  userName = "Ir. Razak Ahmad",
 }: DroneVisionModalProps) {
-  const [droneId, setDroneId] = useState<string>("");
-  const [password, setPassword] = useState<string>("");
+  const perms = getRolePermissions(userRole);
+  const [droneId, setDroneId] = useState<string>("DRN-GAMUDA-8802");
+  const [password, setPassword] = useState<string>("UAV-SECURE-2026");
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isAuthenticating, setIsAuthenticating] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string>("");
   const [cameraMode, setCameraMode] = useState<"OPTICAL" | "THERMAL">("OPTICAL");
   const [showAiOverlay, setShowAiOverlay] = useState<boolean>(true);
+  const [captureNotice, setCaptureNotice] = useState<string>("");
 
   if (!isOpen) return null;
+
+  if (!perms.canViewDroneSiteProgress) {
+    return (
+      <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div className="bg-slate-900 border-2 border-rose-500/60 rounded-2xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl">
+          <div className="inline-flex h-12 w-12 rounded-full bg-rose-500/20 text-rose-400 items-center justify-center text-2xl border border-rose-500/40">
+            🔒
+          </div>
+          <h3 className="text-lg font-extrabold text-white">
+            Drone Vision Restricted
+          </h3>
+          <p className="text-xs text-slate-300 leading-relaxed">
+            Role <strong className="text-amber-400">{userRole}</strong> is scoped to Material &amp; Procurement operations. Live UAV Drone Site Progress telemetry is restricted to{" "}
+            <strong className="text-white">Project Manager, Site Manager, and Site Engineer</strong>.
+          </p>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs border border-slate-700"
+          >
+            Close Window
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleAutofillDemo = () => {
     setDroneId("DRN-GAMUDA-8802");
@@ -317,6 +350,23 @@ export function DroneVisionModal({
               </div>
 
               <div className="flex items-center gap-2">
+                {perms.canControlDroneFlightOrCaptures ? (
+                  <button
+                    onClick={() => {
+                      setCaptureNotice(
+                        `✓ High-res aerial progress frame captured by ${userName} (${userRole}) for ${projectCode}`
+                      );
+                      setTimeout(() => setCaptureNotice(""), 3500);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 font-bold border border-sky-500/40 transition-colors"
+                  >
+                    📸 Capture Progress Frame
+                  </button>
+                ) : (
+                  <span className="px-2.5 py-1 rounded bg-slate-900 border border-slate-700 text-[10px] font-mono text-slate-400">
+                    👷 View-Only Telemetry ({userRole})
+                  </span>
+                )}
                 <button
                   onClick={handleDisconnect}
                   className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold border border-slate-700 transition-colors"
@@ -331,6 +381,11 @@ export function DroneVisionModal({
                 </button>
               </div>
             </div>
+            {captureNotice && (
+              <div className="p-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-mono font-bold text-center">
+                {captureNotice}
+              </div>
+            )}
           </div>
         )}
       </div>

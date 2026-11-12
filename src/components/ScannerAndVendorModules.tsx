@@ -6,13 +6,18 @@ import {
   SeedVendor,
   SeedInventoryItem,
   SeedDefectRecord,
+  RoleType,
 } from "@/lib/seed-data";
-import { computeInventoryMetrics } from "@/lib/business-engine";
+import {
+  computeInventoryMetrics,
+  getRolePermissions,
+} from "@/lib/business-engine";
 import { PurchaseRequestModal } from "./PurchaseRequestModal";
 
 interface ScannerAndVendorProps {
   activeTab: "M01_SCANNER" | "M01_VENDOR";
   projectCode: string;
+  userRole?: RoleType;
   materials: SeedMaterial[];
   vendors: SeedVendor[];
   inventory: SeedInventoryItem[];
@@ -32,6 +37,7 @@ interface ScannerAndVendorProps {
 export function ScannerAndVendorModules({
   activeTab,
   projectCode,
+  userRole = "PROJECT_MANAGER",
   materials,
   vendors,
   inventory,
@@ -39,6 +45,7 @@ export function ScannerAndVendorModules({
   onNavigateTab,
   onSubmitPurchaseRequest,
 }: ScannerAndVendorProps) {
+  const perms = getRolePermissions(userRole);
   // M02 Scanner State
   const [selectedPresetCode, setSelectedPresetCode] = useState<string>("STL-002");
   const [uploadedPreviewUrl, setUploadedPreviewUrl] = useState<string>(
@@ -604,12 +611,16 @@ export function ScannerAndVendorModules({
             </div>
 
             {/* Send Purchase Request Button for Preferred Vendors */}
-            {v.performance.evaluationStatus === "PREFERRED" && (
+            {v.performance.evaluationStatus === "PREFERRED" && perms.canCompareVendors && (
               <button
                 onClick={() => setPurchaseVendor(v)}
                 className="w-full mt-2 py-2 px-3 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold text-xs flex items-center justify-center gap-1.5 transition-all shadow-sm"
               >
-                <span>📝 Send Purchase request</span>
+                <span>
+                  {perms.canManageInventory
+                    ? "📝 Approve & Send Purchase Order"
+                    : "📝 Draft Purchase Requisition"}
+                </span>
               </button>
             )}
           </div>

@@ -62,9 +62,9 @@ export async function POST(
       vendorCode,
       rejectedQty = 0,
       destProjectCode,
-      userId = "usr-sup-01",
+      userId = "usr-sm-01",
       userName = "Ahmad Faiz Zulkifli",
-      userRole = "SITE_SUPERVISOR" as RoleType,
+      userRole = "SITE_MANAGER" as RoleType,
       remarks = "",
     } = body;
 
@@ -100,13 +100,8 @@ export async function POST(
       }
 
       const prevStock = inv.currentStock;
-      // Site Workers submit consumption for supervisor/PM verification; Supervisors/PMs/Engineers verify directly
-      const isAutoVerified = userRole !== "SITE_WORKER";
-      if (isAutoVerified) {
-        inv.currentStock = Number((inv.currentStock - numQty).toFixed(2));
-      } else {
-        inv.reservedStock = Number((inv.reservedStock + numQty).toFixed(2));
-      }
+      const isAutoVerified = true;
+      inv.currentStock = Number((inv.currentStock - numQty).toFixed(2));
       inv.lastUpdated = formatNow();
 
       const txnCode = `TXN-2026-${String(store.transactions.length + 895).padStart(4, "0")}`;
@@ -120,9 +115,7 @@ export async function POST(
         workActivity: workActivity || "Daily Site Zone Consumption",
         recordedBy: userName,
         recordedByRole: userRole,
-        verificationStatus: isAutoVerified
-          ? "VERIFIED"
-          : "PENDING_VERIFICATION",
+        verificationStatus: "VERIFIED",
         remarks,
         transactionDate: formatNow(),
       });
@@ -133,14 +126,10 @@ export async function POST(
         userRole,
         projectCode,
         module: "M02 - Smart Live Inventory",
-        action: isAutoVerified
-          ? "RECORD_VERIFIED_CONSUMPTION"
-          : "SUBMIT_WORKER_CONSUMPTION",
+        action: "RECORD_VERIFIED_CONSUMPTION",
         recordId: txnCode,
         previousValue: `${materialCode} Current Stock: ${prevStock}`,
-        newValue: isAutoVerified
-          ? `${materialCode} Current Stock: ${inv.currentStock} (-${numQty})`
-          : `${materialCode} Pending Verification (-${numQty} reserved)`,
+        newValue: `${materialCode} Current Stock: ${inv.currentStock} (-${numQty})`,
       });
 
       checkAndTriggerLowStockAlert(projectCode, materialCode);
@@ -154,11 +143,11 @@ export async function POST(
 
     // 2. GOODS RECEIPT RECORDING (FR-M02-003, BR-007, BR-009)
     if (actionType === "GOODS_RECEIPT") {
-      if (userRole === "SITE_WORKER") {
+      if (userRole === "SITE_ENGINEER") {
         return NextResponse.json(
           {
             error:
-              "RBAC 3.5 Violation: Site Workers cannot directly authorize or confirm goods receipts into confirmed inventory.",
+              "RBAC 3.5 Violation: Site Engineers do not have Procurement & Yard access to confirm goods receipts.",
           },
           { status: 403 }
         );
