@@ -47,6 +47,7 @@ import { MaterialScannerModal } from "@/components/MaterialScannerModal";
 import { WhatsAppSiteBotModal } from "@/components/WhatsAppSiteBotModal";
 import { ProjectBlueprintModal } from "@/components/ProjectBlueprintModal";
 import { LoginPage } from "@/components/LoginPage";
+import { AICopilotModal } from "@/components/AICopilotModal";
 
 type NavTab =
   | "DASHBOARD"
@@ -81,8 +82,8 @@ export default function BuildSmartAIApp() {
   const [isScannerModalOpen, setIsScannerModalOpen] = useState<boolean>(false);
   const [isWhatsAppOpen, setIsWhatsAppOpen] = useState<boolean>(false);
   const [isBlueprintOpen, setIsBlueprintOpen] = useState<boolean>(false);
+  const [isCopilotOpen, setIsCopilotOpen] = useState<boolean>(false);
   const [themeMode, setThemeMode] = useState<"DARK" | "LIGHT">("DARK");
-  const [viewportMode, setViewportMode] = useState<"LAPTOP" | "MOBILE">("LAPTOP");
 
   const [projects, setProjects] = useState<SeedProject[]>(INITIAL_PROJECTS);
   const [materials] = useState<SeedMaterial[]>(INITIAL_MATERIALS);
@@ -132,21 +133,7 @@ export default function BuildSmartAIApp() {
     setAuditLogs((prev) => [newEntry, ...prev]);
   };
 
-  // Reset Demo State for Live Pitch
-  const handleResetDemo = () => {
-    setProjects(JSON.parse(JSON.stringify(INITIAL_PROJECTS)));
-    setVendors(JSON.parse(JSON.stringify(INITIAL_VENDORS)));
-    setInventory(JSON.parse(JSON.stringify(INITIAL_INVENTORY)));
-    setTransactions(JSON.parse(JSON.stringify(INITIAL_TRANSACTIONS)));
-    setDefects(JSON.parse(JSON.stringify(INITIAL_DEFECTS)));
-    setEquipments(JSON.parse(JSON.stringify(INITIAL_EQUIPMENT)));
-    setMilestones(JSON.parse(JSON.stringify(INITIAL_MILESTONES)));
-    setProgressUpdates(JSON.parse(JSON.stringify(INITIAL_PROGRESS_UPDATES)));
-    setPhotos(JSON.parse(JSON.stringify(INITIAL_PHOTOS)));
-    setRisks(JSON.parse(JSON.stringify(INITIAL_RISKS)));
-    setNotifications(JSON.parse(JSON.stringify(INITIAL_NOTIFICATIONS)));
-    setAuditLogs(JSON.parse(JSON.stringify(INITIAL_AUDIT_LOGS)));
-  };
+
 
   // Region Filter Logic
   const filteredProjects =
@@ -839,7 +826,7 @@ export default function BuildSmartAIApp() {
     );
   }
 
-  // Extracted Main Body Content (Rendered identically in Laptop and Mobile Phone simulator)
+  // Extracted Main Body Content
   const renderMainBody = () => (
     <>
       {!isAuthorizedForProject ? (
@@ -1169,6 +1156,8 @@ export default function BuildSmartAIApp() {
                 vendors={vendors}
                 onUpdateMilestoneProgress={handleUpdateMilestoneProgress}
                 onUpdateRisk={handleUpdateRisk}
+                isCopilotOpen={isCopilotOpen}
+                onToggleCopilot={() => setIsCopilotOpen(!isCopilotOpen)}
               />
             </div>
           )}
@@ -1380,7 +1369,7 @@ export default function BuildSmartAIApp() {
             </div>
           </div>
 
-          {/* Controls: Region Filter, Project Selector, Role Switcher & Reset */}
+          {/* Controls: Region Filter, Project Selector, Role Switcher */}
           <div className="flex flex-wrap items-center gap-2 text-xs">
             {/* REGION FILTER (International & Local Projects) */}
             <div className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-amber-500/40 flex items-center gap-1.5 shadow-inner">
@@ -1442,43 +1431,6 @@ export default function BuildSmartAIApp() {
               </select>
             </div>
 
-            {/* RESET DEMO BUTTON */}
-            <button
-              onClick={handleResetDemo}
-              className="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-amber-400 font-mono font-bold text-xs transition-colors flex items-center gap-1"
-              title="Reset all demo data to initial state for live pitch"
-            >
-              ↺ <span className="hidden sm:inline">Reset</span>
-            </button>
-
-            {/* SCREEN SIZE SWITCHER (Laptop / Mobile phone preview) */}
-            <div className="bg-slate-950 p-1 rounded-lg border border-slate-700 flex items-center gap-0.5 shadow-inner">
-              <button
-                onClick={() => setViewportMode("LAPTOP")}
-                className={`px-2 py-1 rounded text-xs font-mono font-bold transition-all flex items-center gap-1 ${
-                  viewportMode === "LAPTOP"
-                    ? "bg-amber-500 text-slate-950 shadow"
-                    : "text-slate-400 hover:text-white"
-                }`}
-                title="Switch screen size to Laptop / Desktop view"
-              >
-                <span>💻</span>
-                <span className="hidden lg:inline text-[11px]">Laptop</span>
-              </button>
-              <button
-                onClick={() => setViewportMode("MOBILE")}
-                className={`px-2 py-1 rounded text-xs font-mono font-bold transition-all flex items-center gap-1 ${
-                  viewportMode === "MOBILE"
-                    ? "bg-amber-500 text-slate-950 shadow"
-                    : "text-slate-400 hover:text-white"
-                }`}
-                title="Switch screen size to Mobile Phone view"
-              >
-                <span>📱</span>
-                <span className="hidden lg:inline text-[11px]">Mobile</span>
-              </button>
-            </div>
-
             {/* TOP-RIGHT SCANNER ICON (Across all pages) */}
             <button
               onClick={() => setIsScannerModalOpen(true)}
@@ -1526,6 +1478,21 @@ export default function BuildSmartAIApp() {
               <span className="hidden sm:inline">Blueprint</span>
             </button>
 
+            {/* TOP-RIGHT AI COPILOT ICON (Across all pages) */}
+            <button
+              onClick={() => setIsCopilotOpen(!isCopilotOpen)}
+              className={`px-2.5 py-1.5 rounded-lg border font-mono font-bold text-xs flex items-center gap-1.5 transition-all shadow-md group ${
+                isCopilotOpen
+                  ? "bg-indigo-600/30 text-indigo-200 border-indigo-400 ring-2 ring-indigo-500/40"
+                  : "bg-indigo-500/10 hover:bg-indigo-500/20 border-indigo-500/40 text-indigo-300"
+              }`}
+              title="Open BuildSmart AI Risk Copilot (Accessible across all pages)"
+            >
+              <span className="text-sm group-hover:scale-110 transition-transform">🤖</span>
+              <span className="hidden sm:inline">Ask AI</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse hidden sm:inline" />
+            </button>
+
             {/* TOP-RIGHT THEME TOGGLE (Dark / Light Mode) */}
             <button
               onClick={() => setThemeMode(themeMode === "DARK" ? "LIGHT" : "DARK")}
@@ -1549,65 +1516,8 @@ export default function BuildSmartAIApp() {
         </div>
       </header>
 
-      {/* Main Body Layout: Viewport Mode Switcher (Laptop Full vs Mobile Phone Preview) */}
-      {viewportMode === "MOBILE" ? (
-        <div className="flex-1 bg-slate-950 flex flex-col items-center justify-start py-6 px-2 overflow-y-auto">
-          <div className="text-center mb-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-mono font-semibold">
-              <span>📱 Mobile Phone Viewport Preview</span>
-              <button
-                onClick={() => setViewportMode("LAPTOP")}
-                className="underline hover:text-white ml-2 text-slate-300"
-              >
-                Switch to Laptop (Full)
-              </button>
-            </div>
-          </div>
-
-          {/* Smartphone Bezel */}
-          <div className="w-full max-w-[430px] bg-slate-900 rounded-[44px] border-[6px] border-slate-700 shadow-2xl overflow-hidden flex flex-col h-[860px] max-h-[85vh] relative ring-1 ring-slate-600/50">
-            {/* Phone Speaker & Camera Notch */}
-            <div className="bg-slate-950 px-6 py-2.5 flex items-center justify-between text-[11px] font-mono text-slate-400 border-b border-slate-800 select-none">
-              <span>09:41</span>
-              <div className="w-24 h-4 bg-slate-900 rounded-full border border-slate-800 flex items-center justify-center">
-                <div className="w-2 h-2 rounded-full bg-slate-800 border border-slate-700" />
-              </div>
-              <div className="flex items-center gap-1.5 text-[10px]">
-                <span>5G</span>
-                <span>⚡ 98%</span>
-              </div>
-            </div>
-
-            {/* Mobile Navigation Dropdown & Quick Selector */}
-            <div className="bg-slate-900 border-b border-slate-800 p-2.5 flex items-center justify-between gap-2">
-              <span className="text-[10px] font-mono font-bold text-amber-400">PAGE:</span>
-              <select
-                value={activeTab}
-                onChange={(e) => setActiveTab(e.target.value as NavTab)}
-                className="bg-slate-950 text-white font-bold border border-slate-700 rounded-lg px-2.5 py-1.5 flex-1 text-xs focus:outline-none cursor-pointer"
-              >
-                {navSections.flatMap((s) => s.items).map((item) => (
-                  <option key={item.id} value={item.id} className="bg-slate-900 text-white">
-                    {item.icon} {item.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Phone Scrollable Body */}
-            <div className="flex-1 overflow-y-auto p-3 text-xs bg-slate-950">
-              {renderMainBody()}
-            </div>
-
-            {/* Phone Bottom Home Bar */}
-            <div className="bg-slate-950 py-2 flex justify-center border-t border-slate-800/60">
-              <div className="w-32 h-1 bg-slate-600 rounded-full" />
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* Laptop Standard Layout */
-        <div className="flex-1 flex overflow-hidden">
+      {/* Main Body Layout */}
+      <div className="flex-1 flex overflow-hidden">
           {/* SIDEBAR NAVIGATION (Construction Theme) */}
           {isSidebarOpen && (
             <aside className="w-64 flex-shrink-0 bg-slate-900 border-r border-slate-800 flex flex-col justify-between py-4 px-3 overflow-y-auto shadow-2xl transition-all">
@@ -1683,7 +1593,6 @@ export default function BuildSmartAIApp() {
             {renderMainBody()}
           </main>
         </div>
-      )}
 
       {/* Global Modals Mounted Across All Pages */}
       <MaterialScannerModal
@@ -1718,6 +1627,15 @@ export default function BuildSmartAIApp() {
       <ProjectBlueprintModal
         isOpen={isBlueprintOpen}
         onClose={() => setIsBlueprintOpen(false)}
+      />
+
+      {/* Global Floating AI Copilot Window (Accessible Across All Pages) */}
+      <AICopilotModal
+        isOpen={isCopilotOpen}
+        onClose={() => setIsCopilotOpen(false)}
+        projectCode={selectedProjectCode}
+        currentUserName={currentUser.name}
+        currentUserRole={currentUser.role}
       />
     </div>
   );

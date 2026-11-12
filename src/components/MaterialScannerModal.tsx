@@ -38,9 +38,27 @@ export function MaterialScannerModal({
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [cameraError, setCameraError] = useState<string>("");
   const [isCameraActive, setIsCameraActive] = useState<boolean>(false);
+  const [isPhoneDevice, setIsPhoneDevice] = useState<boolean>(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+
+  // Detect whether current client is a phone or laptop/desktop
+  useEffect(() => {
+    if (typeof window !== "undefined" && typeof navigator !== "undefined") {
+      const ua = (
+        navigator.userAgent ||
+        navigator.vendor ||
+        (window as any).opera ||
+        ""
+      ).toLowerCase();
+      const isMobileUA =
+        /android|webos|iphone|ipod|blackberry|iemobile|opera mini|mobile/i.test(
+          ua
+        );
+      setIsPhoneDevice(isMobileUA);
+    }
+  }, [isOpen]);
 
   // Stop camera helper
   const stopCamera = () => {
@@ -51,9 +69,9 @@ export function MaterialScannerModal({
     setIsCameraActive(false);
   };
 
-  // Start camera when modal is open and inputMode is CAMERA
+  // Start camera ONLY when modal is open, inputMode is CAMERA, and device is a PHONE
   useEffect(() => {
-    if (!isOpen || inputMode !== "CAMERA") {
+    if (!isOpen || inputMode !== "CAMERA" || !isPhoneDevice) {
       stopCamera();
       return;
     }
@@ -83,7 +101,7 @@ export function MaterialScannerModal({
       .catch((err) => {
         console.warn("Camera access denied or unavailable:", err);
         setCameraError(
-          "Camera access not granted or no webcam detected. You can switch to Upload Image or select a Site Sample."
+          "Camera access not granted or no phone camera detected. You can switch to Upload Image or select a Site Sample."
         );
         setIsCameraActive(false);
       });
@@ -92,7 +110,7 @@ export function MaterialScannerModal({
       isMounted = false;
       stopCamera();
     };
-  }, [isOpen, inputMode]);
+  }, [isOpen, inputMode, isPhoneDevice]);
 
   if (!isOpen) return null;
 
@@ -189,7 +207,7 @@ export function MaterialScannerModal({
                 </span>
               </div>
               <p className="text-slate-400 text-xs">
-                Activate mobile or laptop camera, or upload photo to identify specs, verified vendors & live stock.
+                Scan via mobile phone camera, or upload photo on laptop to identify specs, verified vendors & live stock.
               </p>
             </div>
           </div>
@@ -218,7 +236,16 @@ export function MaterialScannerModal({
                   : "bg-slate-800 text-slate-300 hover:bg-slate-700"
               }`}
             >
-              📹 Live Camera
+              <span>📹 Live Camera</span>
+              <span
+                className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                  isPhoneDevice
+                    ? "bg-emerald-500/20 text-emerald-300"
+                    : "bg-slate-900/80 text-amber-300/80"
+                }`}
+              >
+                Phone Only
+              </span>
             </button>
             <button
               onClick={() => setInputMode("UPLOAD")}
@@ -247,42 +274,100 @@ export function MaterialScannerModal({
             {/* Left: Camera / Upload Container */}
             <div className="lg:col-span-5 space-y-3">
               {inputMode === "CAMERA" && (
-                <div className="bg-slate-950 rounded-xl border border-slate-800 p-3 space-y-3">
-                  <div className="relative aspect-video sm:aspect-square w-full rounded-lg overflow-hidden bg-slate-900 flex items-center justify-center border border-slate-700">
-                    {isCameraActive ? (
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        muted
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="p-4 text-center space-y-2 text-xs text-slate-400">
-                        <div className="text-3xl">📷</div>
-                        <p>{cameraError || "Initializing laptop/mobile camera..."}</p>
+                !isPhoneDevice ? (
+                  /* Laptop Notice: Live Camera Unavailable on Laptop */
+                  <div className="bg-slate-950 rounded-xl border border-amber-500/30 p-6 text-center space-y-4 shadow-xl">
+                    <div className="w-14 h-14 mx-auto rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-3xl">
+                      💻
+                    </div>
+                    <div className="space-y-1.5">
+                      <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-mono font-bold uppercase">
+                        Laptop Detected
                       </div>
-                    )}
+                      <h4 className="text-white font-extrabold text-base">
+                        This feature is unavailable for laptop
+                      </h4>
+                      <p className="text-slate-400 text-xs leading-relaxed max-w-sm mx-auto">
+                        Live camera scanning can only be opened using a mobile phone. On your laptop, please use <strong className="text-amber-400">Upload Image</strong> to scan material photos, or select from <strong className="text-sky-400">Site Sample Presets</strong>.
+                      </p>
+                    </div>
 
-                    {/* Camera Viewfinder Overlay */}
-                    {isCameraActive && (
-                      <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                        <div className="w-48 h-48 border-2 border-dashed border-amber-400/80 rounded-lg flex items-center justify-center">
-                          <span className="bg-slate-950/80 px-2 py-0.5 rounded text-[10px] font-mono text-amber-300">
-                            ALIGN MATERIAL HERE
-                          </span>
-                        </div>
-                      </div>
-                    )}
+                    <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">
+                      <button
+                        onClick={() => setInputMode("UPLOAD")}
+                        className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs flex items-center justify-center gap-1.5 shadow"
+                      >
+                        <span>📤</span>
+                        <span>Switch to Upload Image</span>
+                      </button>
+                      <button
+                        onClick={() => setInputMode("PRESET")}
+                        className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 flex items-center justify-center gap-1.5"
+                      >
+                        <span>🏗️</span>
+                        <span>Site Samples</span>
+                      </button>
+                    </div>
+
+                    {/* Developer/Evaluation Demo Toggle to test phone mode */}
+                    <div className="pt-3 border-t border-slate-800/80">
+                      <button
+                        onClick={() => setIsPhoneDevice(true)}
+                        className="text-[10px] text-slate-500 hover:text-amber-400 underline font-mono transition-colors"
+                        title="Simulate a phone device to test live camera activation"
+                      >
+                        📱 Demo Mode: Simulate Phone Device
+                      </button>
+                    </div>
                   </div>
+                ) : (
+                  /* Phone Camera Active */
+                  <div className="bg-slate-950 rounded-xl border border-slate-800 p-3 space-y-3">
+                    <div className="relative aspect-video sm:aspect-square w-full rounded-lg overflow-hidden bg-slate-900 flex items-center justify-center border border-slate-700">
+                      {isCameraActive ? (
+                        <video
+                          ref={videoRef}
+                          autoPlay
+                          playsInline
+                          muted
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="p-4 text-center space-y-2 text-xs text-slate-400">
+                          <div className="text-3xl">📷</div>
+                          <p>{cameraError || "Initializing phone camera..."}</p>
+                        </div>
+                      )}
 
-                  <button
-                    onClick={handleCaptureSnapshot}
-                    className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
-                  >
-                    📸 Capture & Analyze Material
-                  </button>
-                </div>
+                      {/* Camera Viewfinder Overlay */}
+                      {isCameraActive && (
+                        <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                          <div className="w-48 h-48 border-2 border-dashed border-amber-400/80 rounded-lg flex items-center justify-center">
+                            <span className="bg-slate-950/80 px-2 py-0.5 rounded text-[10px] font-mono text-amber-300">
+                              ALIGN MATERIAL HERE
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={handleCaptureSnapshot}
+                      className="w-full py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md transition-all flex items-center justify-center gap-2"
+                    >
+                      📸 Capture & Analyze Material
+                    </button>
+
+                    <div className="text-center pt-1">
+                      <button
+                        onClick={() => setIsPhoneDevice(false)}
+                        className="text-[10px] text-slate-500 hover:text-slate-400 underline font-mono"
+                      >
+                        💻 Switch back to Laptop Detection
+                      </button>
+                    </div>
+                  </div>
+                )
               )}
 
               {inputMode === "UPLOAD" && (

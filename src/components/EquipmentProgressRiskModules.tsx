@@ -52,6 +52,8 @@ interface EquipmentProgressRiskProps {
     riskOwner: string;
     resolutionNotes?: string;
   }) => void;
+  isCopilotOpen?: boolean;
+  onToggleCopilot?: () => void;
 }
 
 export function EquipmentProgressRiskModules({
@@ -69,6 +71,8 @@ export function EquipmentProgressRiskModules({
   vendors,
   onUpdateMilestoneProgress,
   onUpdateRisk,
+  isCopilotOpen,
+  onToggleCopilot,
 }: EquipmentProgressRiskProps) {
   const perms = getRolePermissions(currentUser.role);
   // M05 Progress State
@@ -872,11 +876,21 @@ export function EquipmentProgressRiskModules({
 
         {/* Floating Copilot Launcher Button */}
         <button
-          onClick={() => setIsChatOpen(!isChatOpen)}
+          onClick={() => {
+            if (onToggleCopilot) {
+              onToggleCopilot();
+            } else {
+              setIsChatOpen(!isChatOpen);
+            }
+          }}
           className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg flex items-center gap-2"
         >
           <span>🤖</span>
-          <span>{isChatOpen ? "Close AI Copilot Window" : "Open Floating AI Copilot"}</span>
+          <span>
+            {(onToggleCopilot ? isCopilotOpen : isChatOpen)
+              ? "Close AI Copilot Window"
+              : "Open Floating AI Copilot"}
+          </span>
         </button>
       </div>
 
@@ -1140,8 +1154,8 @@ export function EquipmentProgressRiskModules({
         </div>
       </div>
 
-      {/* Floating AI Copilot Launcher Button (when minimized) */}
-      {!isChatOpen && (
+      {/* Floating AI Copilot Launcher Button (when minimized, if not using global copilot) */}
+      {!onToggleCopilot && !isChatOpen && (
         <button
           onClick={() => setIsChatOpen(true)}
           className="fixed bottom-6 right-6 z-50 px-4 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-2xl flex items-center gap-2.5 border-2 border-indigo-400/60 hover:scale-105 transition-all"
@@ -1155,8 +1169,8 @@ export function EquipmentProgressRiskModules({
         </button>
       )}
 
-      {/* Floating AI Copilot Chat Window (At least 70% screen height: h-[75vh]) */}
-      {isChatOpen && (
+      {/* Floating AI Copilot Chat Window (Fallback when not using global copilot) */}
+      {!onToggleCopilot && isChatOpen && (
         <div className="fixed bottom-6 right-6 w-[94vw] sm:w-[500px] md:w-[560px] h-[75vh] min-h-[540px] max-h-[88vh] bg-slate-900 border-2 border-indigo-500 rounded-2xl shadow-2xl flex flex-col z-50 overflow-hidden backdrop-blur-md animate-fadeIn">
           {/* Header */}
           <div className="bg-gradient-to-r from-indigo-950 via-slate-900 to-slate-900 px-4 py-3 border-b border-indigo-500/40 flex items-center justify-between">
