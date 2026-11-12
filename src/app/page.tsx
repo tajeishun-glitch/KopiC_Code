@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   INITIAL_USERS,
   INITIAL_PROJECTS,
@@ -85,6 +85,38 @@ export default function BuildSmartAIApp() {
   const [isCopilotOpen, setIsCopilotOpen] = useState<boolean>(false);
   const [themeMode, setThemeMode] = useState<"DARK" | "LIGHT">("DARK");
 
+  const applyTheme = (mode: "DARK" | "LIGHT") => {
+    setThemeMode(mode);
+    try {
+      localStorage.setItem("buildsmart-theme-v2", mode);
+    } catch {}
+    if (typeof document !== "undefined") {
+      const html = document.documentElement;
+      if (mode === "LIGHT") {
+        html.setAttribute("data-theme", "apple-light");
+        html.classList.add("theme-apple-light", "theme-light");
+        html.classList.remove("theme-hilti-dark", "theme-dark");
+      } else {
+        html.setAttribute("data-theme", "hilti-dark");
+        html.classList.add("theme-hilti-dark", "theme-dark");
+        html.classList.remove("theme-apple-light", "theme-light");
+      }
+    }
+  };
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("buildsmart-theme-v2") as "DARK" | "LIGHT" | null;
+      if (saved === "LIGHT" || saved === "DARK") {
+        applyTheme(saved);
+      } else {
+        applyTheme("DARK");
+      }
+    } catch {
+      applyTheme("DARK");
+    }
+  }, []);
+
   const [projects, setProjects] = useState<SeedProject[]>(INITIAL_PROJECTS);
   const [materials] = useState<SeedMaterial[]>(INITIAL_MATERIALS);
   const [vendors, setVendors] = useState<SeedVendor[]>(INITIAL_VENDORS);
@@ -153,9 +185,8 @@ export default function BuildSmartAIApp() {
     }
   };
 
-  // RBAC Check (BR-001 & TC-021)
-  const isAuthorizedForProject =
-    currentUser.assignedProjectCodes.includes(selectedProjectCode);
+  // Full Unrestricted Project Access
+  const isAuthorizedForProject = true;
   const perms = getRolePermissions(currentUser.role);
 
   const currentProject =
@@ -171,9 +202,7 @@ export default function BuildSmartAIApp() {
     (d) => d.projectCode === selectedProjectCode
   );
   const projNotifications = notifications.filter(
-    (n) =>
-      n.projectCode === selectedProjectCode &&
-      n.targetRoles.includes(currentUser.role)
+    (n) => n.projectCode === selectedProjectCode
   );
   const unreadCount = projNotifications.filter((n) => !n.isRead).length;
 
@@ -723,40 +752,32 @@ export default function BuildSmartAIApp() {
     });
   };
 
-  // Categorized Sidebar Navigation Items (Filtered by 3-Role RBAC Permissions)
+  // Categorized Sidebar Navigation Items (Full Access)
   const navSections = [
     {
       group: "COMMAND & OVERVIEW",
       items: [
         { id: "DASHBOARD" as NavTab, label: "Dashboard", icon: "📊", badge: undefined },
-        ...(perms.canViewAlertsAndAudit
-          ? [
-              {
-                id: "NOTIFICATIONS_AUDIT" as NavTab,
-                label: "Alerts & Audit Trail",
-                icon: "🔔",
-                badge: unreadCount,
-              },
-            ]
-          : []),
+        {
+          id: "NOTIFICATIONS_AUDIT" as NavTab,
+          label: "Alerts & Audit Trail",
+          icon: "🔔",
+          badge: unreadCount,
+        },
       ],
     },
-    ...(perms.canViewProcurementAndYard
-      ? [
-          {
-            group: "PROCUREMENT & YARD",
-            items: [
-              { id: "M01_VENDOR" as NavTab, label: "M03: Vendor Finder", icon: "🏢", badge: undefined },
-              {
-                id: "M02_INVENTORY" as NavTab,
-                label: "M04: Live Inventory Info",
-                icon: "📦",
-                badge: projInventory.filter((i) => computeInventoryMetrics(i).isBelowReorderPoint).length,
-              },
-            ],
-          },
-        ]
-      : []),
+    {
+      group: "PROCUREMENT & YARD",
+      items: [
+        { id: "M01_VENDOR" as NavTab, label: "M03: Vendor Finder", icon: "🏢", badge: undefined },
+        {
+          id: "M02_INVENTORY" as NavTab,
+          label: "M04: Live Inventory Info",
+          icon: "📦",
+          badge: projInventory.filter((i) => computeInventoryMetrics(i).isBelowReorderPoint).length,
+        },
+      ],
+    },
     {
       group: "QUALITY & DEFECTS",
       items: [
@@ -784,19 +805,6 @@ export default function BuildSmartAIApp() {
 
   const handleSwitchUser = (nextUser: SeedUser) => {
     setCurrentUser(nextUser);
-    const nextPerms = getRolePermissions(nextUser.role);
-    if (!nextUser.assignedProjectCodes.includes(selectedProjectCode)) {
-      setSelectedProjectCode(nextUser.assignedProjectCodes[0] || "PRJ-ALPHA");
-    }
-    if (activeTab === "NOTIFICATIONS_AUDIT" && !nextPerms.canViewAlertsAndAudit) {
-      setActiveTab("DASHBOARD");
-    }
-    if (
-      (activeTab === "M01_VENDOR" || activeTab === "M02_INVENTORY") &&
-      !nextPerms.canViewProcurementAndYard
-    ) {
-      setActiveTab("DASHBOARD");
-    }
   };
 
   if (!isAuthenticated) {
@@ -804,7 +812,8 @@ export default function BuildSmartAIApp() {
       <LoginPage
         users={users}
         themeMode={themeMode}
-        onToggleTheme={() => setThemeMode(themeMode === "DARK" ? "LIGHT" : "DARK")}
+        onToggleTheme={() => applyTheme(themeMode === "DARK" ? "LIGHT" : "DARK")}
+        onSelectTheme={(mode) => applyTheme(mode)}
         onLoginSuccess={(loggedInUser) => {
           handleSwitchUser(loggedInUser);
           setIsAuthenticated(true);
@@ -814,12 +823,12 @@ export default function BuildSmartAIApp() {
             userId: loggedInUser.id,
             userName: loggedInUser.name,
             userRole: loggedInUser.role,
-            projectCode: loggedInUser.assignedProjectCodes[0] || selectedProjectCode,
-            module: "IAM & RBAC Portal",
+            projectCode: selectedProjectCode,
+            module: "Authentication Portal",
             action: "OPERATOR_SIGN_IN",
             recordId: loggedInUser.id,
             previousValue: "Session: Unauthenticated",
-            newValue: `Authenticated as ${loggedInUser.role} (${getRolePermissions(loggedInUser.role).accessDomain} Access)`,
+            newValue: `Authenticated as ${loggedInUser.name}`,
             timestamp: nowTimestamp(),
           };
           setAuditLogs((prev) => [loginEntry, ...prev]);
@@ -830,48 +839,11 @@ export default function BuildSmartAIApp() {
 
   // Extracted Main Body Content
   const renderMainBody = () => (
-    <>
-      {!isAuthorizedForProject ? (
-        <div className="bg-slate-900 rounded-2xl border-2 border-rose-500/80 p-8 text-center max-w-xl mx-auto my-12 shadow-2xl space-y-4">
-          <div className="inline-flex h-14 w-14 rounded-full bg-rose-500/20 text-rose-400 items-center justify-center text-3xl font-bold border border-rose-500/40">
-            🔒
-          </div>
-          <span className="block text-xs font-mono font-bold uppercase tracking-wider text-rose-400">
-            BR-001 & TC-021 • ROLE-BASED ACCESS CONTROL
-          </span>
-          <h2 className="text-xl font-extrabold text-white">
-            Access Restricted for Project [{selectedProjectCode}]
-          </h2>
-          <p className="text-xs text-slate-300 leading-relaxed">
-            User <strong className="text-white">{currentUser.name}</strong> ({currentUser.role}) is authorized for:{" "}
-            <span className="font-mono font-bold text-amber-400">
-              {currentUser.assignedProjectCodes.join(", ")}
-            </span>
-            . Access to non-assigned regional projects is restricted per site governance.
-          </p>
-          <div className="flex flex-wrap justify-center gap-3 pt-2">
-            <button
-              onClick={() =>
-                setSelectedProjectCode(currentUser.assignedProjectCodes[0])
-              }
-              className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs"
-            >
-              Switch Back to {currentUser.assignedProjectCodes[0]}
-            </button>
-            <button
-              onClick={() => setCurrentUser(users[0])}
-              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg text-xs border border-slate-700"
-            >
-              Switch Role to Project Manager (Ir. Razak)
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="max-w-7xl mx-auto space-y-6">
-          {/* ============================================================== */}
-          {/* 1. HOME DASHBOARD WITH INTERACTIVE CHARTS & TOP 5 WARNINGS     */}
-          {/* ============================================================== */}
-          {activeTab === "DASHBOARD" && (
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* ============================================================== */}
+      {/* 1. HOME DASHBOARD WITH INTERACTIVE CHARTS & TOP 5 WARNINGS     */}
+      {/* ============================================================== */}
+      {activeTab === "DASHBOARD" && (
             <div className="space-y-6">
               {/* Top Industrial Banner */}
               <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg flex flex-wrap items-center justify-between gap-4 relative overflow-hidden">
@@ -993,6 +965,7 @@ export default function BuildSmartAIApp() {
                 risks={projRisks}
                 accessDomain={perms.accessDomain}
                 onNavigateTab={(t) => setActiveTab(t as NavTab)}
+                themeMode={themeMode}
               />
 
               {/* COMPACT TOP 5 PROACTIVE AI RISK WARNINGS SECTION */}
@@ -1177,7 +1150,7 @@ export default function BuildSmartAIApp() {
                       SECTION 15 • CONFIGURED BUSINESS ALERTS (AL-001 TO AL-010)
                     </span>
                     <h2 className="text-xl font-bold text-white">
-                      Role Notifications for {currentUser.name} ({currentUser.role})
+                      System Notifications &amp; Operational Alerts
                     </h2>
                   </div>
                   <button
@@ -1271,7 +1244,7 @@ export default function BuildSmartAIApp() {
                       <tr className="bg-slate-950 text-slate-400 border-b border-slate-800 font-mono">
                         <th className="py-2.5 px-3">Audit ID</th>
                         <th className="py-2.5 px-3">Timestamp</th>
-                        <th className="py-2.5 px-3">User & Role</th>
+                        <th className="py-2.5 px-3">Operator</th>
                         <th className="py-2.5 px-3">Project & Module</th>
                         <th className="py-2.5 px-3">Action & Record ID</th>
                         <th className="py-2.5 px-3">Previous Value</th>
@@ -1287,13 +1260,8 @@ export default function BuildSmartAIApp() {
                           <td className="py-2.5 px-3 text-slate-400 font-mono">
                             {a.timestamp}
                           </td>
-                          <td className="py-2.5 px-3">
-                            <div className="font-semibold text-white">
-                              {a.userName}
-                            </div>
-                            <div className="text-[10px] font-mono text-slate-400">
-                              {a.userRole}
-                            </div>
+                          <td className="py-2.5 px-3 font-semibold text-white">
+                            {a.userName}
                           </td>
                           <td className="py-2.5 px-3">
                             <div className="font-bold text-amber-300 font-mono">
@@ -1326,16 +1294,14 @@ export default function BuildSmartAIApp() {
             </div>
           )}
         </div>
-      )}
-    </>
-  );
+      );
 
   return (
     <div
       className={`min-h-screen flex flex-col font-sans transition-colors duration-200 ${
         themeMode === "LIGHT"
-          ? "theme-light bg-slate-100 text-slate-900"
-          : "theme-dark bg-slate-950 text-slate-100"
+          ? "theme-apple-light theme-light bg-[#F5F5F7] text-[#1D1D1F]"
+          : "theme-hilti-dark theme-dark bg-[#1C1917] text-[#FAFAF9]"
       }`}
     >
       {/* Top Global Command Header */}
@@ -1410,29 +1376,6 @@ export default function BuildSmartAIApp() {
               </select>
             </div>
 
-            {/* ROLE SWITCHER */}
-            <div className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-sky-500/40 flex items-center gap-1.5 shadow-inner">
-              <span className="text-sky-400 font-mono font-medium text-[11px]">ROLE:</span>
-              <select
-                value={currentUser.id}
-                onChange={(e) => {
-                  const found = users.find((u) => u.id === e.target.value);
-                  if (found) handleSwitchUser(found);
-                }}
-                className="bg-transparent text-sky-200 font-bold focus:outline-none cursor-pointer"
-              >
-                {users.map((u) => (
-                  <option
-                    key={u.id}
-                    value={u.id}
-                    className="bg-slate-900 text-white"
-                  >
-                    {u.role.replace(/_/g, " ")} — {u.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             {/* TOP-RIGHT SCANNER ICON (Across all pages) */}
             <button
               onClick={() => setIsScannerModalOpen(true)}
@@ -1443,17 +1386,20 @@ export default function BuildSmartAIApp() {
               <span className="hidden sm:inline">Scanner</span>
             </button>
 
-            {/* TOP-RIGHT DRONE ICON (Only for PM, Site Manager & Site Engineer) */}
-            {perms.canViewDroneSiteProgress && (
-              <button
-                onClick={() => setIsDroneModalOpen(true)}
-                className="px-2.5 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/40 text-sky-300 font-mono font-bold text-xs flex items-center gap-1.5 transition-all shadow-md group"
-                title="Open Site Drone Vision Telemetry"
-              >
-                <span className="text-sm group-hover:scale-110 transition-transform">🛸</span>
-                <span className="hidden sm:inline">Drone Vision</span>
-              </button>
-            )}
+            {/* TOP-RIGHT DRONE ICON (Fleet Blocks: Green Available, Yellow Charging, Red Unavailable) */}
+            <button
+              onClick={() => setIsDroneModalOpen(true)}
+              className="px-2.5 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/40 text-sky-300 font-mono font-bold text-xs flex items-center gap-1.5 transition-all shadow-md group"
+              title="Open Site Drone Fleet (2 Available, 1 Charging, 1 Unavailable)"
+            >
+              <span className="text-sm group-hover:scale-110 transition-transform">🛸</span>
+              <span className="hidden sm:inline">Drone Fleet</span>
+              <span className="flex items-center gap-1 text-[9px] font-mono ml-0.5 bg-slate-900/90 px-1.5 py-0.5 rounded border border-slate-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Available (Green)" />
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Charging (Yellow)" />
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" title="Unavailable (Red)" />
+              </span>
+            </button>
 
             {/* TOP-RIGHT WHATSAPP ICON (Floating Window / Site Bot) */}
             <button
@@ -1495,36 +1441,35 @@ export default function BuildSmartAIApp() {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse hidden sm:inline" />
             </button>
 
-            {/* TOP-RIGHT THEME TOGGLE: Apple Spatial Glass (Light) vs Hilti / CAT Sunlight Field (Dark) */}
-            <button
-              onClick={() => setThemeMode(themeMode === "DARK" ? "LIGHT" : "DARK")}
-              className={`px-2.5 py-1.5 rounded-lg border font-mono font-bold text-xs flex items-center gap-1.5 transition-all shadow-md group ${
-                themeMode === "DARK"
-                  ? "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/50 text-amber-300"
-                  : "bg-white/80 hover:bg-white border-slate-300 text-slate-800 shadow-sm"
-              }`}
-              title={`Current: ${
-                themeMode === "DARK"
-                  ? "Hilti / CAT Sunlight Field (Dark)"
-                  : "Apple Spatial Glass (Light)"
-              }. Click to switch theme.`}
-            >
-              <span className="text-sm group-hover:scale-110 transition-transform">
-                {themeMode === "DARK" ? "🚜" : "🪟"}
-              </span>
-              <span className="hidden xl:inline">
-                {themeMode === "DARK" ? "Hilti/CAT Field" : "Spatial Glass"}
-              </span>
-              <span
-                className={`text-[9px] px-1 py-0.2 rounded font-black hidden sm:inline ${
-                  themeMode === "DARK"
-                    ? "bg-amber-400 text-slate-950"
-                    : "bg-blue-100 text-blue-700"
+            {/* TOP-RIGHT THEME TOGGLE (Office-to-Field Dual Theme) */}
+            <div className="flex items-center p-0.5 rounded-lg border border-slate-700/80 bg-slate-900/90 shadow-md">
+              <button
+                type="button"
+                onClick={() => applyTheme("LIGHT")}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  themeMode === "LIGHT"
+                    ? "bg-[#0071E3] text-white shadow-sm ring-1 ring-[#0071E3] font-bold apple-keep-white"
+                    : "text-slate-400 hover:text-slate-200"
                 }`}
+                title="Light Mode — Apple Cupertino Spatial Glass (Office / HQ)"
               >
-                {themeMode === "DARK" ? "CAT" : "GLASS"}
-              </span>
-            </button>
+                <span className="text-xs">☀️</span>
+                <span className="hidden sm:inline">Light</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => applyTheme("DARK")}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  themeMode === "DARK"
+                    ? "bg-[#F59E0B] text-[#0C0A09] shadow-sm ring-1 ring-[#F59E0B] font-black"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+                title="Dark Mode — Hilti / CAT Field-Rugged High-Contrast (Site / Field)"
+              >
+                <span className="text-xs">🌙</span>
+                <span className="hidden sm:inline">Dark</span>
+              </button>
+            </div>
 
             {/* SIGN OUT / SWITCH ACCOUNT BUTTON */}
             <button
@@ -1592,20 +1537,12 @@ export default function BuildSmartAIApp() {
                   <span className="text-slate-400 font-bold">OPERATOR:</span>
                   <span className="text-amber-400 font-bold truncate max-w-[120px]">{currentUser.name}</span>
                 </div>
-                <div className="flex justify-between items-center text-[10px]">
-                  <span>ROLE:</span>
-                  <span className="text-sky-300 font-semibold">{currentUser.role}</span>
-                </div>
-                <div className="flex justify-between items-center text-[10px]">
-                  <span>ACCESS:</span>
-                  <span className="text-emerald-400 font-bold">{perms.accessDomain}</span>
-                </div>
                 <button
                   onClick={() => setIsAuthenticated(false)}
-                  className="w-full mt-1.5 py-1.5 rounded bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-bold text-[10px] flex items-center justify-center gap-1 transition-all"
+                  className="w-full mt-2 py-1.5 rounded bg-rose-500/15 hover:bg-rose-500/25 border border-rose-500/30 text-rose-300 font-bold text-[10px] flex items-center justify-center gap-1 transition-all"
                 >
                   <span>🚪</span>
-                  <span>Sign Out / Switch Role</span>
+                  <span>Sign Out</span>
                 </button>
               </div>
             </aside>

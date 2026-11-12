@@ -40,93 +40,34 @@ export interface RolePermissions {
   canExecuteRiskActions: boolean;
 }
 
-export function getRolePermissions(role: RoleType): RolePermissions {
-  switch (role) {
-    case "PROJECT_MANAGER":
-      // Ir. Razak Ahmad: Full access across all modules
-      return {
-        dashboardAccess: "FULL",
-        accessDomain: "FULL",
-        canViewAlertsAndAudit: true,
-        canViewProcurementAndYard: true,
-        canViewDroneSiteProgress: true,
-        canControlDroneFlightOrCaptures: true,
-        canUpdateProgress: true,
-        canScanMaterial: true,
-        canCompareVendors: true,
-        canManageInventory: true,
-        canVerifyConsumption: true,
-        canSubmitConsumption: true,
-        canConfirmGoodsReceipt: true,
-        canTransferMaterialSurplus: true,
-        canPerformQualityInspection: true,
-        canReportDefect: true,
-        canUpdateDefectStatus: true,
-        canViewVendorPerformance: true,
-        canManageEquipmentAllocation: true,
-        canRequestEquipment: true,
-        canApproveEquipmentTransfer: true,
-        canManageMaintenance: true,
-        canAssignRiskActions: true,
-        canExecuteRiskActions: true,
-      };
-    case "SITE_MANAGER":
-      // Ahmad Faiz Zulkifli: Full access EXCEPT Alerts & Audit Trail access
-      return {
-        dashboardAccess: "FULL",
-        accessDomain: "FULL",
-        canViewAlertsAndAudit: false,
-        canViewProcurementAndYard: true,
-        canViewDroneSiteProgress: true,
-        canControlDroneFlightOrCaptures: true,
-        canUpdateProgress: true,
-        canScanMaterial: true,
-        canCompareVendors: true,
-        canManageInventory: true,
-        canVerifyConsumption: true,
-        canSubmitConsumption: true,
-        canConfirmGoodsReceipt: true,
-        canTransferMaterialSurplus: true,
-        canPerformQualityInspection: true,
-        canReportDefect: true,
-        canUpdateDefectStatus: true,
-        canViewVendorPerformance: true,
-        canManageEquipmentAllocation: true,
-        canRequestEquipment: true,
-        canApproveEquipmentTransfer: true,
-        canManageMaintenance: true,
-        canAssignRiskActions: true,
-        canExecuteRiskActions: true,
-      };
-    case "SITE_ENGINEER":
-      // Engr. Mei Ling Tan: Full access EXCEPT Alerts & Audit Trail, Procurement & Yard access
-      return {
-        dashboardAccess: "LIMITED_CONSTRUCTION",
-        accessDomain: "CONSTRUCTION",
-        canViewAlertsAndAudit: false,
-        canViewProcurementAndYard: false,
-        canViewDroneSiteProgress: true,
-        canControlDroneFlightOrCaptures: true,
-        canUpdateProgress: true,
-        canScanMaterial: true,
-        canCompareVendors: false,
-        canManageInventory: false,
-        canVerifyConsumption: true,
-        canSubmitConsumption: true,
-        canConfirmGoodsReceipt: false,
-        canTransferMaterialSurplus: false,
-        canPerformQualityInspection: true,
-        canReportDefect: true,
-        canUpdateDefectStatus: true,
-        canViewVendorPerformance: true,
-        canManageEquipmentAllocation: true,
-        canRequestEquipment: true,
-        canApproveEquipmentTransfer: true,
-        canManageMaintenance: true,
-        canAssignRiskActions: true,
-        canExecuteRiskActions: true,
-      };
-  }
+export function getRolePermissions(_role?: RoleType): RolePermissions {
+  // Full unrestricted access across all modules and actions
+  return {
+    dashboardAccess: "FULL",
+    accessDomain: "FULL",
+    canViewAlertsAndAudit: true,
+    canViewProcurementAndYard: true,
+    canViewDroneSiteProgress: true,
+    canControlDroneFlightOrCaptures: true,
+    canUpdateProgress: true,
+    canScanMaterial: true,
+    canCompareVendors: true,
+    canManageInventory: true,
+    canVerifyConsumption: true,
+    canSubmitConsumption: true,
+    canConfirmGoodsReceipt: true,
+    canTransferMaterialSurplus: true,
+    canPerformQualityInspection: true,
+    canReportDefect: true,
+    canUpdateDefectStatus: true,
+    canViewVendorPerformance: true,
+    canManageEquipmentAllocation: true,
+    canRequestEquipment: true,
+    canApproveEquipmentTransfer: true,
+    canManageMaintenance: true,
+    canAssignRiskActions: true,
+    canExecuteRiskActions: true,
+  };
 }
 
 // FR-M02-001, FR-M02-005, FR-M02-006

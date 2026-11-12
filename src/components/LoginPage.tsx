@@ -8,6 +8,7 @@ interface LoginPageProps {
   onLoginSuccess: (user: SeedUser) => void;
   themeMode?: "DARK" | "LIGHT";
   onToggleTheme?: () => void;
+  onSelectTheme?: (mode: "DARK" | "LIGHT") => void;
 }
 
 export function LoginPage({
@@ -15,6 +16,7 @@ export function LoginPage({
   onLoginSuccess,
   themeMode = "DARK",
   onToggleTheme,
+  onSelectTheme,
 }: LoginPageProps) {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
@@ -50,8 +52,8 @@ export function LoginPage({
   return (
     <div className={`min-h-screen flex flex-col justify-between relative overflow-hidden font-sans transition-colors duration-200 ${
       themeMode === "LIGHT"
-        ? "theme-light bg-slate-100 text-slate-900"
-        : "theme-dark bg-slate-950 text-slate-100"
+        ? "theme-apple-light theme-light bg-[#F5F5F7] text-[#1D1D1F]"
+        : "theme-hilti-dark theme-dark bg-[#1C1917] text-[#FAFAF9]"
     }`}>
       {/* Subtle Engineering Blueprint Grid Background */}
       <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#f59e0b_1px,transparent_1px)] [background-size:24px_24px]" />
@@ -79,30 +81,35 @@ export function LoginPage({
           </div>
         </div>
 
-        {onToggleTheme && (
+        {/* Segmented Dual-Theme Toggle */}
+        <div className="flex items-center p-0.5 rounded-lg border border-slate-700/80 bg-slate-900/90 shadow-md">
           <button
             type="button"
-            onClick={onToggleTheme}
-            className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-bold flex items-center gap-2 transition-all shadow-md ${
+            onClick={() => (onSelectTheme ? onSelectTheme("LIGHT") : onToggleTheme && onToggleTheme())}
+            className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
               themeMode === "LIGHT"
-                ? "bg-white/80 hover:bg-white text-slate-800 border-slate-300 shadow-sm"
-                : "bg-slate-800/90 hover:bg-slate-700 text-amber-300 border-amber-500/40"
+                ? "bg-[#0071E3] text-white shadow-sm ring-1 ring-[#0071E3] font-bold apple-keep-white"
+                : "text-slate-400 hover:text-slate-200"
             }`}
-            title={`Switch to ${themeMode === "DARK" ? "Apple Spatial Glass (Light)" : "Hilti / CAT Sunlight Field (Dark)"}`}
+            title="Light Mode — Apple Cupertino Spatial Glass (Office / HQ)"
           >
-            <span>{themeMode === "LIGHT" ? "🪟" : "🚜"}</span>
-            <span>{themeMode === "LIGHT" ? "Apple Spatial Glass" : "Hilti / CAT Field"}</span>
-            <span
-              className={`text-[9px] px-1.5 py-0.5 rounded font-black ${
-                themeMode === "LIGHT"
-                  ? "bg-blue-100 text-blue-700"
-                  : "bg-amber-400 text-slate-950"
-              }`}
-            >
-              {themeMode === "LIGHT" ? "LIGHT" : "DARK"}
-            </span>
+            <span className="text-xs">☀️</span>
+            <span className="hidden sm:inline">Light</span>
           </button>
-        )}
+          <button
+            type="button"
+            onClick={() => (onSelectTheme ? onSelectTheme("DARK") : onToggleTheme && onToggleTheme())}
+            className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              themeMode === "DARK"
+                ? "bg-[#F59E0B] text-[#0C0A09] shadow-sm ring-1 ring-[#F59E0B] font-black"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+            title="Dark Mode — Hilti / CAT Field-Rugged High-Contrast (Site / Field)"
+          >
+            <span className="text-xs">🌙</span>
+            <span className="hidden sm:inline">Dark</span>
+          </button>
+        </div>
       </header>
 
       {/* Centered Sign-In Card */}

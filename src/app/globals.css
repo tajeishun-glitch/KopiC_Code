@@ -3,298 +3,780 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 15, 23, 42;
-  --background-rgb: 248, 250, 252;
+  --canvas-bg: #1C1917;
+  --header-bg: #171412;
+  --card-bg: #292524;
+  --sidebar-bg: #0C0A09;
+  --border-color: #44403C;
+  --text-primary: #FAFAF9;
+  --text-secondary: #D6D3D1;
+  --text-muted: #A8A29E;
+  --accent-primary: #F59E0B;
+  --accent-primary-text: #0C0A09;
+  --accent-alert: #DC2626;
+  --accent-success: #22C55E;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: rgb(var(--background-rgb));
-  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--text-primary);
+  background: var(--canvas-bg);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 /* ==========================================================================
-   THEME 1: APPLE SPATIAL GLASS (LIGHT MODE)
-   Inspired by visionOS, macOS Sonoma & iOS spatial glassmorphism:
-   - Pearlescent translucent frosted glass panels with specular reflections
-   - Ambient diffused lighting with subtle chromatic aura
-   - Crisp dark SF slate typography & vibrant Apple sapphire/emerald accents
+   THEME 1: 01 APPLE CUPERTINO SPATIAL GLASS (LIGHT MODE)
+   .theme-apple-light / [data-theme="apple-light"] / .theme-light
+   UX Purpose: Executive clarity for Project Directors, QS, and HQ engineers.
+   - Canvas: #F5F5F7 (Spatial Silver-White)
+   - Header & Sidebar: Frosted translucent glass rgba(255, 255, 255, 0.84)
+     backdrop-filter: saturate(180%) blur(20px), 1px solid #E5E5EA hairline border
+   - Card Surface: rgba(255, 255, 255, 0.94) (#FFFFFF), border #E5E5EA,
+     diffused shadow 0 8px 24px rgba(0, 0, 0, 0.045), squircle radius (16px cards, 20px modals)
+   - Recessed Inputs/Wells: #F5F5F7 bg, #D2D2D7 border, focus ring #0071E3 (3px soft glow)
+   - Typography: System SF Pro stack; Primary #1D1D1F, Secondary #3A3A3C, Muted #6E6E73
+   - Cupertino Blue #0071E3, Apple Emerald #34C759, Apple Orange #FF9500, Apple Red #FF3B30
    ========================================================================== */
 
+[data-theme="apple-light"],
+.theme-apple-light,
 .theme-light {
-  background-color: #f1f5f9 !important;
+  background-color: #F5F5F7 !important;
   background: 
-    radial-gradient(circle at 10% 15%, rgba(219, 234, 254, 0.75) 0%, transparent 45%),
-    radial-gradient(circle at 90% 85%, rgba(238, 242, 255, 0.8) 0%, transparent 50%),
-    radial-gradient(circle at 50% 50%, rgba(248, 250, 252, 0.95) 0%, #eef2f7 100%) !important;
+    radial-gradient(circle at 15% 10%, rgba(229, 231, 235, 0.55) 0%, transparent 40%),
+    radial-gradient(circle at 85% 90%, rgba(224, 231, 255, 0.45) 0%, transparent 45%),
+    #F5F5F7 !important;
   background-attachment: fixed !important;
-  color: #0f172a !important;
+  color: #1D1D1F !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", -apple-system-subheadline, "Helvetica Neue", Arial, sans-serif !important;
 }
 
-/* Spatial Glass Floating Header */
+/* Apple Cupertino Spatial Frosted Header */
+[data-theme="apple-light"] header,
+.theme-apple-light header,
 .theme-light header {
-  background: rgba(255, 255, 255, 0.78) !important;
-  backdrop-filter: blur(28px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.8) !important;
-  box-shadow: 0 4px 24px -2px rgba(15, 23, 42, 0.05), inset 0 -1px 0 rgba(255, 255, 255, 0.9) !important;
-  color: #0f172a !important;
+  background: rgba(255, 255, 255, 0.84) !important;
+  backdrop-filter: saturate(180%) blur(20px) !important;
+  -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
+  border-top: none !important;
+  border-bottom: 1px solid #E5E5EA !important;
+  border-left: none !important;
+  border-right: none !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.03), inset 0 -1px 0 rgba(255, 255, 255, 0.95) !important;
+  color: #1D1D1F !important;
 }
 
-/* Spatial Glass Frosted Sidebar */
+/* Apple Cupertino Spatial Frosted Sidebar */
+[data-theme="apple-light"] aside,
+.theme-apple-light aside,
 .theme-light aside {
-  background: rgba(255, 255, 255, 0.68) !important;
-  backdrop-filter: blur(28px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
-  border-right: 1px solid rgba(226, 232, 240, 0.8) !important;
-  box-shadow: 4px 0 24px rgba(15, 23, 42, 0.03) !important;
-  color: #0f172a !important;
+  background: rgba(255, 255, 255, 0.84) !important;
+  backdrop-filter: saturate(180%) blur(20px) !important;
+  -webkit-backdrop-filter: saturate(180%) blur(20px) !important;
+  border-right: 1px solid #E5E5EA !important;
+  border-top: none !important;
+  border-left: none !important;
+  border-bottom: none !important;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.025) !important;
+  color: #1D1D1F !important;
 }
 
-/* Spatial Glass Transparent Canvas */
-.theme-light main {
-  background: transparent !important;
-  color: #0f172a !important;
+/* Main Canvas Background in Apple Light Mode: Spatial Silver-White #F5F5F7 */
+[data-theme="apple-light"] main,
+[data-theme="apple-light"] main.bg-slate-950,
+.theme-apple-light main,
+.theme-apple-light main.bg-slate-950,
+.theme-light main,
+.theme-light main.bg-slate-950 {
+  background-color: #F5F5F7 !important;
+  background: #F5F5F7 !important;
+  color: #1D1D1F !important;
 }
 
-/* Apple Spatial Frosted Glass Panels & Cards */
+/* Card Surfaces in Apple Light Mode: #FFFFFF card against #F5F5F7 canvas, #E2E4E9 border, squircle 16px */
+[data-theme="apple-light"] .bg-slate-900,
+[data-theme="apple-light"] .bg-slate-950:not(main),
+[data-theme="apple-light"] main .bg-slate-900,
+[data-theme="apple-light"] main .bg-slate-950,
+[data-theme="apple-light"] .bg-slate-900\/95,
+[data-theme="apple-light"] .bg-slate-900\/90,
+[data-theme="apple-light"] .bg-slate-900\/80,
+[data-theme="apple-light"] .bg-slate-950\/95,
+[data-theme="apple-light"] .bg-slate-950\/90,
+[data-theme="apple-light"] .bg-slate-950\/80,
+[data-theme="apple-light"] .bg-slate-950\/70,
+[data-theme="apple-light"] .bg-slate-950\/50,
+.theme-apple-light .bg-slate-900,
+.theme-apple-light .bg-slate-950:not(main),
+.theme-apple-light main .bg-slate-900,
+.theme-apple-light main .bg-slate-950,
 .theme-light .bg-slate-900,
-.theme-light .bg-slate-950,
-.theme-light .bg-slate-900\/95,
-.theme-light .bg-slate-900\/90,
-.theme-light .bg-slate-900\/80,
-.theme-light .bg-slate-950\/95,
-.theme-light .bg-slate-950\/90,
-.theme-light .bg-slate-950\/80,
-.theme-light .bg-slate-950\/50 {
-  background-color: rgba(255, 255, 255, 0.74) !important;
-  backdrop-filter: blur(24px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
-  border-color: rgba(255, 255, 255, 0.9) !important;
+.theme-light .bg-slate-950:not(main),
+.theme-light main .bg-slate-900,
+.theme-light main .bg-slate-950 {
+  background-color: #FFFFFF !important;
+  border-color: #E2E4E9 !important;
+  border-radius: 16px !important;
   box-shadow: 
-    0 10px 30px -4px rgba(15, 23, 42, 0.06),
-    0 0 0 1px rgba(255, 255, 255, 0.9) inset,
-    0 1px 3px 0 rgba(0, 0, 0, 0.02) !important;
-  color: #0f172a !important;
+    0 4px 20px -2px rgba(0, 0, 0, 0.05),
+    0 1px 3px rgba(0, 0, 0, 0.03),
+    0 0 0 1px rgba(226, 228, 233, 0.6) inset !important;
+  color: #1D1D1F !important;
 }
 
-/* Secondary Frosted Glass Controls / Inset Panels */
+/* Recessed Wells & Secondary Inset Panels: #F0F1F5 bg, #CBD5E1 border */
+[data-theme="apple-light"] .bg-slate-800,
+[data-theme="apple-light"] .bg-slate-800\/90,
+[data-theme="apple-light"] .bg-slate-800\/80,
+[data-theme="apple-light"] .bg-slate-800\/60,
+[data-theme="apple-light"] .bg-slate-800\/50,
+.theme-apple-light .bg-slate-800,
+.theme-apple-light .bg-slate-800\/90,
+.theme-apple-light .bg-slate-800\/80,
+.theme-apple-light .bg-slate-800\/60,
+.theme-apple-light .bg-slate-800\/50,
 .theme-light .bg-slate-800,
-.theme-light .bg-slate-800\/90,
-.theme-light .bg-slate-800\/80,
-.theme-light .bg-slate-800\/50 {
-  background-color: rgba(241, 245, 249, 0.85) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-  border-color: rgba(203, 213, 225, 0.8) !important;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03) !important;
-  color: #1e293b !important;
+.theme-light .bg-slate-800\/80 {
+  background-color: #F0F1F5 !important;
+  border-color: #CBD5E1 !important;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+  color: #1E293B !important;
 }
 
-/* Apple Glass Borders & Dividers */
+/* Hairline Borders across Apple Light mode */
+[data-theme="apple-light"] .border-slate-800,
+[data-theme="apple-light"] .border-slate-700,
+[data-theme="apple-light"] .border-slate-800\/80,
+[data-theme="apple-light"] .border-slate-700\/80,
+[data-theme="apple-light"] .border-slate-800\/60,
+.theme-apple-light .border-slate-800,
+.theme-apple-light .border-slate-700,
+.theme-apple-light .border-slate-800\/80,
+.theme-apple-light .border-slate-700\/80,
 .theme-light .border-slate-800,
-.theme-light .border-slate-700,
-.theme-light .border-slate-800\/80,
-.theme-light .border-slate-700\/80,
-.theme-light .border-slate-800\/60 {
-  border-color: rgba(226, 232, 240, 0.85) !important;
+.theme-light .border-slate-700 {
+  border-color: #E2E4E9 !important;
 }
 
-/* Crisp Apple Typography */
+/* Apple Typography SF Pro Colors - Enhanced High Contrast */
+[data-theme="apple-light"] .text-white,
+[data-theme="apple-light"] .text-slate-100,
+.theme-apple-light .text-white,
+.theme-apple-light .text-slate-100,
 .theme-light .text-white,
 .theme-light .text-slate-100 {
-  color: #0f172a !important;
+  color: #0F172A !important;
 }
 
-.theme-light .text-slate-300,
-.theme-light .text-slate-200 {
-  color: #334155 !important;
+[data-theme="apple-light"] .text-slate-200,
+[data-theme="apple-light"] .text-slate-300,
+.theme-apple-light .text-slate-200,
+.theme-apple-light .text-slate-300,
+.theme-light .text-slate-200,
+.theme-light .text-slate-300 {
+  color: #1E293B !important;
 }
 
+[data-theme="apple-light"] .text-slate-400,
+[data-theme="apple-light"] .text-slate-500,
+.theme-apple-light .text-slate-400,
+.theme-apple-light .text-slate-500,
 .theme-light .text-slate-400,
 .theme-light .text-slate-500 {
-  color: #64748b !important;
+  color: #475569 !important;
 }
 
-/* Interactive Inputs & Selects in Spatial Glass */
+/* Recessed Inputs / Wells in Apple Light Mode: #F5F5F7 background, #CBD5E1 border, focus ring #0071E3 */
+[data-theme="apple-light"] input,
+[data-theme="apple-light"] select,
+[data-theme="apple-light"] textarea,
+.theme-apple-light input,
+.theme-apple-light select,
+.theme-apple-light textarea,
 .theme-light input,
 .theme-light select,
 .theme-light textarea {
-  background-color: rgba(255, 255, 255, 0.9) !important;
-  border-color: rgba(203, 213, 225, 0.8) !important;
-  color: #0f172a !important;
+  background-color: #F8FAFC !important;
+  border: 1px solid #CBD5E1 !important;
+  border-radius: 10px !important;
+  color: #0F172A !important;
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+  transition: all 0.15s ease-in-out !important;
 }
 
+[data-theme="apple-light"] input:focus,
+[data-theme="apple-light"] select:focus,
+[data-theme="apple-light"] textarea:focus,
+.theme-apple-light input:focus,
+.theme-apple-light select:focus,
+.theme-apple-light textarea:focus,
+.theme-light input:focus,
+.theme-light select:focus,
+.theme-light textarea:focus {
+  border-color: #0071E3 !important;
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.25) !important;
+  outline: none !important;
+}
+
+[data-theme="apple-light"] select option,
+.theme-apple-light select option,
 .theme-light select option {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
 }
 
-/* Spatial Glass Floating Modals */
+/* Modals in Apple Light Mode: Squircle 20px radius, soft spatial diffused shadow */
+[data-theme="apple-light"] .fixed.inset-0 .bg-slate-900,
+[data-theme="apple-light"] .fixed.inset-0 .bg-slate-950,
+.theme-apple-light .fixed.inset-0 .bg-slate-900,
+.theme-apple-light .fixed.inset-0 .bg-slate-950,
 .theme-light .fixed.inset-0 .bg-slate-900,
 .theme-light .fixed.inset-0 .bg-slate-950 {
-  background-color: rgba(255, 255, 255, 0.88) !important;
-  backdrop-filter: blur(32px) saturate(200%) !important;
-  -webkit-backdrop-filter: blur(32px) saturate(200%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.95) !important;
+  background-color: rgba(255, 255, 255, 0.98) !important;
+  backdrop-filter: blur(28px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+  border: 1px solid #E2E4E9 !important;
+  border-radius: 20px !important;
   box-shadow: 
-    0 25px 60px -15px rgba(15, 23, 42, 0.16),
-    0 0 0 1px rgba(255, 255, 255, 0.9) inset !important;
+    0 24px 60px -12px rgba(0, 0, 0, 0.14),
+    0 0 0 1px rgba(255, 255, 255, 0.95) inset !important;
 }
 
-/* Apple Glass Custom Scrollbars */
+/* Active Nav in Apple Light Mode: Cupertino Blue #0071E3 with crisp white text */
+[data-theme="apple-light"] aside button.bg-amber-500,
+.theme-apple-light aside button.bg-amber-500,
+.theme-light aside button.bg-amber-500 {
+  background-color: #0071E3 !important;
+  color: #FFFFFF !important;
+  border-radius: 10px !important;
+  box-shadow: 0 4px 12px rgba(0, 113, 227, 0.28) !important;
+}
+
+[data-theme="apple-light"] aside button.bg-amber-500 span,
+.theme-apple-light aside button.bg-amber-500 span,
+.theme-light aside button.bg-amber-500 span {
+  color: #FFFFFF !important;
+}
+
+/* Primary Action Buttons in Apple Light Mode */
+[data-theme="apple-light"] button.bg-amber-500,
+.theme-apple-light button.bg-amber-500,
+.theme-light button.bg-amber-500 {
+  background-color: #0071E3 !important;
+  color: #FFFFFF !important;
+}
+[data-theme="apple-light"] button.bg-amber-500:hover,
+.theme-apple-light button.bg-amber-500:hover,
+.theme-light button.bg-amber-500:hover {
+  background-color: #0077ED !important;
+}
+
+/* Solid Saturated Buttons & Badges: ALWAYS KEEP WHITE TEXT in Apple Light Mode */
+[data-theme="apple-light"] .apple-keep-white,
+[data-theme="apple-light"] .apple-keep-white *,
+[data-theme="apple-light"] button.bg-rose-500,
+[data-theme="apple-light"] button.bg-rose-500 *,
+[data-theme="apple-light"] button.bg-rose-600,
+[data-theme="apple-light"] button.bg-rose-600 *,
+[data-theme="apple-light"] button.bg-emerald-500,
+[data-theme="apple-light"] button.bg-emerald-500 *,
+[data-theme="apple-light"] button.bg-emerald-600,
+[data-theme="apple-light"] button.bg-emerald-600 *,
+[data-theme="apple-light"] button.bg-indigo-600,
+[data-theme="apple-light"] button.bg-indigo-600 *,
+[data-theme="apple-light"] button.bg-indigo-500,
+[data-theme="apple-light"] button.bg-indigo-500 *,
+[data-theme="apple-light"] button.bg-sky-600,
+[data-theme="apple-light"] button.bg-sky-600 *,
+[data-theme="apple-light"] button.bg-sky-500,
+[data-theme="apple-light"] button.bg-sky-500 *,
+[data-theme="apple-light"] button.bg-blue-600,
+[data-theme="apple-light"] button.bg-blue-600 *,
+[data-theme="apple-light"] button.bg-purple-600,
+[data-theme="apple-light"] button.bg-purple-600 *,
+[data-theme="apple-light"] button.bg-amber-500,
+[data-theme="apple-light"] button.bg-amber-500 *,
+.theme-apple-light .apple-keep-white,
+.theme-apple-light .apple-keep-white *,
+.theme-apple-light button.bg-rose-500,
+.theme-apple-light button.bg-rose-500 *,
+.theme-apple-light button.bg-rose-600,
+.theme-apple-light button.bg-rose-600 *,
+.theme-apple-light button.bg-emerald-500,
+.theme-apple-light button.bg-emerald-500 *,
+.theme-apple-light button.bg-emerald-600,
+.theme-apple-light button.bg-emerald-600 *,
+.theme-apple-light button.bg-indigo-600,
+.theme-apple-light button.bg-indigo-600 *,
+.theme-apple-light button.bg-indigo-500,
+.theme-apple-light button.bg-indigo-500 *,
+.theme-apple-light button.bg-purple-600,
+.theme-apple-light button.bg-purple-600 *,
+.theme-apple-light button.bg-amber-500,
+.theme-apple-light button.bg-amber-500 * {
+  color: #FFFFFF !important;
+}
+
+/* Cupertino High-Contrast Accents - Replaces washed-out light pastels */
+[data-theme="apple-light"] .text-amber-100,
+[data-theme="apple-light"] .text-amber-200,
+[data-theme="apple-light"] .text-amber-300,
+[data-theme="apple-light"] .text-amber-400,
+[data-theme="apple-light"] .text-amber-500,
+[data-theme="apple-light"] .text-yellow-100,
+[data-theme="apple-light"] .text-yellow-200,
+[data-theme="apple-light"] .text-yellow-300,
+[data-theme="apple-light"] .text-yellow-400,
+[data-theme="apple-light"] .text-yellow-500,
+.theme-apple-light .text-amber-100,
+.theme-apple-light .text-amber-200,
+.theme-apple-light .text-amber-300,
+.theme-apple-light .text-amber-400,
+.theme-apple-light .text-amber-500,
+.theme-apple-light .text-yellow-300,
+.theme-apple-light .text-yellow-400 {
+  color: #B25000 !important;
+  font-weight: 600;
+}
+
+[data-theme="apple-light"] .text-emerald-100,
+[data-theme="apple-light"] .text-emerald-200,
+[data-theme="apple-light"] .text-emerald-300,
+[data-theme="apple-light"] .text-emerald-400,
+[data-theme="apple-light"] .text-emerald-500,
+[data-theme="apple-light"] .text-green-200,
+[data-theme="apple-light"] .text-green-300,
+[data-theme="apple-light"] .text-green-400,
+[data-theme="apple-light"] .text-green-500,
+.theme-apple-light .text-emerald-100,
+.theme-apple-light .text-emerald-200,
+.theme-apple-light .text-emerald-300,
+.theme-apple-light .text-emerald-400,
+.theme-apple-light .text-emerald-500,
+.theme-apple-light .text-green-300,
+.theme-apple-light .text-green-400 {
+  color: #15803D !important;
+  font-weight: 600;
+}
+
+[data-theme="apple-light"] .text-rose-100,
+[data-theme="apple-light"] .text-rose-200,
+[data-theme="apple-light"] .text-rose-300,
+[data-theme="apple-light"] .text-rose-400,
+[data-theme="apple-light"] .text-rose-500,
+[data-theme="apple-light"] .text-red-200,
+[data-theme="apple-light"] .text-red-300,
+[data-theme="apple-light"] .text-red-400,
+[data-theme="apple-light"] .text-red-500,
+.theme-apple-light .text-rose-100,
+.theme-apple-light .text-rose-200,
+.theme-apple-light .text-rose-300,
+.theme-apple-light .text-rose-400,
+.theme-apple-light .text-rose-500,
+.theme-apple-light .text-red-300,
+.theme-apple-light .text-red-400 {
+  color: #D70015 !important;
+  font-weight: 600;
+}
+
+[data-theme="apple-light"] .text-indigo-100,
+[data-theme="apple-light"] .text-indigo-200,
+[data-theme="apple-light"] .text-indigo-300,
+[data-theme="apple-light"] .text-indigo-400,
+[data-theme="apple-light"] .text-indigo-500,
+[data-theme="apple-light"] .text-purple-200,
+[data-theme="apple-light"] .text-purple-300,
+[data-theme="apple-light"] .text-purple-400,
+.theme-apple-light .text-indigo-100,
+.theme-apple-light .text-indigo-200,
+.theme-apple-light .text-indigo-300,
+.theme-apple-light .text-indigo-400,
+.theme-apple-light .text-indigo-500,
+.theme-apple-light .text-purple-300,
+.theme-apple-light .text-purple-400 {
+  color: #5856D6 !important;
+  font-weight: 600;
+}
+
+[data-theme="apple-light"] .text-sky-100,
+[data-theme="apple-light"] .text-sky-200,
+[data-theme="apple-light"] .text-sky-300,
+[data-theme="apple-light"] .text-sky-400,
+[data-theme="apple-light"] .text-sky-500,
+[data-theme="apple-light"] .text-blue-200,
+[data-theme="apple-light"] .text-blue-300,
+[data-theme="apple-light"] .text-blue-400,
+[data-theme="apple-light"] .text-blue-500,
+[data-theme="apple-light"] .text-cyan-200,
+[data-theme="apple-light"] .text-cyan-300,
+[data-theme="apple-light"] .text-cyan-400,
+.theme-apple-light .text-sky-200,
+.theme-apple-light .text-sky-300,
+.theme-apple-light .text-sky-400,
+.theme-apple-light .text-blue-300,
+.theme-apple-light .text-blue-400,
+.theme-apple-light .text-cyan-300,
+.theme-apple-light .text-cyan-400 {
+  color: #0066CC !important;
+  font-weight: 600;
+}
+
+/* High-Contrast Tinted Badges in Apple Light Mode */
+[data-theme="apple-light"] .bg-amber-500\/10,
+[data-theme="apple-light"] .bg-amber-500\/15,
+[data-theme="apple-light"] .bg-amber-500\/20,
+.theme-apple-light .bg-amber-500\/10,
+.theme-apple-light .bg-amber-500\/15,
+.theme-apple-light .bg-amber-500\/20 {
+  background-color: rgba(245, 158, 11, 0.14) !important;
+  border-color: rgba(217, 119, 6, 0.35) !important;
+  color: #92400E !important;
+}
+
+[data-theme="apple-light"] .bg-emerald-500\/10,
+[data-theme="apple-light"] .bg-emerald-500\/15,
+[data-theme="apple-light"] .bg-emerald-500\/20,
+.theme-apple-light .bg-emerald-500\/10,
+.theme-apple-light .bg-emerald-500\/15,
+.theme-apple-light .bg-emerald-500\/20 {
+  background-color: rgba(34, 197, 94, 0.14) !important;
+  border-color: rgba(22, 163, 74, 0.35) !important;
+  color: #166534 !important;
+}
+
+[data-theme="apple-light"] .bg-rose-500\/10,
+[data-theme="apple-light"] .bg-rose-500\/15,
+[data-theme="apple-light"] .bg-rose-500\/20,
+.theme-apple-light .bg-rose-500\/10,
+.theme-apple-light .bg-rose-500\/15,
+.theme-apple-light .bg-rose-500\/20 {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+  border-color: rgba(220, 38, 38, 0.35) !important;
+  color: #B91C1C !important;
+}
+
+[data-theme="apple-light"] .bg-sky-500\/10,
+[data-theme="apple-light"] .bg-sky-500\/15,
+[data-theme="apple-light"] .bg-sky-500\/20,
+[data-theme="apple-light"] .bg-blue-500\/10,
+[data-theme="apple-light"] .bg-blue-500\/20,
+.theme-apple-light .bg-sky-500\/10,
+.theme-apple-light .bg-sky-500\/15,
+.theme-apple-light .bg-sky-500\/20 {
+  background-color: rgba(0, 113, 227, 0.12) !important;
+  border-color: rgba(0, 113, 227, 0.32) !important;
+  color: #0066CC !important;
+}
+
+[data-theme="apple-light"] .bg-indigo-500\/10,
+[data-theme="apple-light"] .bg-indigo-500\/15,
+[data-theme="apple-light"] .bg-indigo-500\/20,
+[data-theme="apple-light"] .bg-indigo-600\/20,
+[data-theme="apple-light"] .bg-indigo-600\/30,
+.theme-apple-light .bg-indigo-500\/10,
+.theme-apple-light .bg-indigo-500\/15,
+.theme-apple-light .bg-indigo-500\/20 {
+  background-color: rgba(88, 86, 214, 0.14) !important;
+  border-color: rgba(88, 86, 214, 0.35) !important;
+  color: #4F46E5 !important;
+}
+
+/* Subtle Apple Scrollbars */
+[data-theme="apple-light"] ::-webkit-scrollbar,
+.theme-apple-light ::-webkit-scrollbar,
 .theme-light ::-webkit-scrollbar {
   width: 7px;
   height: 7px;
 }
+[data-theme="apple-light"] ::-webkit-scrollbar-track,
+.theme-apple-light ::-webkit-scrollbar-track,
 .theme-light ::-webkit-scrollbar-track {
-  background: rgba(241, 245, 249, 0.6);
+  background: rgba(245, 245, 247, 0.7);
 }
+[data-theme="apple-light"] ::-webkit-scrollbar-thumb,
+.theme-apple-light ::-webkit-scrollbar-thumb,
 .theme-light ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.5);
+  background: rgba(174, 174, 178, 0.5);
   border-radius: 9999px;
 }
+[data-theme="apple-light"] ::-webkit-scrollbar-thumb:hover,
+.theme-apple-light ::-webkit-scrollbar-thumb:hover,
 .theme-light ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 0.7);
+  background: rgba(142, 142, 147, 0.8);
 }
 
 
 /* ==========================================================================
-   THEME 2: HILTI / CAT SUNLIGHT FIELD (DARK MODE)
-   Inspired by Caterpillar heavy construction machinery & Hilti power tools:
-   - Deep industrial asphalt/graphite armor chassis background
-   - High-visibility CAT Sunlight Yellow (#F59E0B / #FBBF24 / #FFCD00) hazard accents
-   - High-torque Hilti Red (#D40511 / #EF4444) critical safety alerts & emergency markers
-   - Extreme sunlight field contrast for high readability under direct outdoor site conditions
+   THEME 2: 08 HILTI / CAT FIELD-RUGGED HIGH-CONTRAST (DARK MODE)
+   .theme-hilti-dark / [data-theme="hilti-dark"] / .theme-dark
+   UX Purpose: Maximum outdoor sunlight legibility & rugged touch targets.
+   - Canvas: #1C1917 (Warm Industrial Asphalt / Stone-900 — avoids cold blue-slate)
+   - Sidebar & Deep Input Wells: #0C0A09 (Deep Carbon Stone-950) with heavy-duty 2px solid #44403C
+   - Header: #171412 with signature top 4px industrial stripe (gradient red-to-amber)
+   - Card Surface: #292524 (Rugged Stone-800), border #44403C, engineered 8px radius
+   - Secondary Controls: #35302D (hover #44403C), border #57534E
+   - Typography: High-contrast #FAFAF9 primary, #D6D3D1 secondary, #A8A29E muted
+   - CAT Safety Amber #F59E0B with pitch-black #0C0A09 text for primary active buttons
+   - Hilti Signal Red #DC2626 with #FFFFFF text (inline alerts #F87171)
+   - Field Green #22C55E / #4ADE80
    ========================================================================== */
 
+[data-theme="hilti-dark"],
+.theme-hilti-dark,
 .theme-dark {
-  background-color: #0a0c10 !important;
+  background-color: #1C1917 !important;
   background-image: 
-    radial-gradient(rgba(245, 158, 11, 0.08) 1.5px, transparent 1.5px),
-    linear-gradient(to bottom, #0a0c10 0%, #10131a 100%) !important;
-  background-size: 26px 26px, 100% 100% !important;
+    radial-gradient(rgba(245, 158, 11, 0.05) 1.5px, transparent 1.5px),
+    linear-gradient(to bottom, #1C1917 0%, #141210 100%) !important;
+  background-size: 24px 24px, 100% 100% !important;
   background-attachment: fixed !important;
-  color: #f8fafc !important;
+  color: #FAFAF9 !important;
 }
 
-/* CAT Industrial Header with Safety Yellow Hazard Baseline */
+/* CAT Heavy Machinery Industrial Header with Signature Top 4px Industrial Stripe */
+[data-theme="hilti-dark"] header,
+.theme-hilti-dark header,
 .theme-dark header {
-  background: linear-gradient(180deg, #161a22 0%, #101319 100%) !important;
-  border-bottom: 2px solid #f59e0b !important;
+  background: #171412 !important;
+  border-top: 4px solid transparent !important;
+  border-image: linear-gradient(90deg, #DC2626 0% 28%, #F59E0B 28% 100%) 1 !important;
+  border-bottom: 2px solid #44403C !important;
   box-shadow: 
-    0 4px 20px rgba(0, 0, 0, 0.7),
-    0 1px 0 rgba(245, 158, 11, 0.3) inset !important;
-  color: #f8fafc !important;
+    0 6px 22px rgba(0, 0, 0, 0.72),
+    inset 0 1px 0 rgba(245, 158, 11, 0.15) !important;
+  color: #FAFAF9 !important;
 }
 
-/* Heavy Machinery Steel Enclosure Sidebar */
+/* Deep Carbon Stone-950 Sidebar with 2px Solid #44403C */
+[data-theme="hilti-dark"] aside,
+.theme-hilti-dark aside,
 .theme-dark aside {
-  background-color: #0f1218 !important;
-  border-right: 1px solid #232936 !important;
-  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.6) !important;
-  color: #f8fafc !important;
+  background-color: #0C0A09 !important;
+  border-right: 2px solid #44403C !important;
+  box-shadow: 6px 0 24px rgba(0, 0, 0, 0.65) !important;
+  color: #FAFAF9 !important;
 }
 
+[data-theme="hilti-dark"] main,
+.theme-hilti-dark main,
 .theme-dark main {
   background: transparent !important;
-  color: #f8fafc !important;
+  color: #FAFAF9 !important;
 }
 
-/* Heavy-Duty Rugged Equipment Cards */
+/* Heavy-Duty Rugged Stone-800 Cards: #292524, border #44403C, 8px engineered radius */
+[data-theme="hilti-dark"] .bg-slate-900,
+[data-theme="hilti-dark"] .bg-slate-900\/95,
+[data-theme="hilti-dark"] .bg-slate-900\/90,
+[data-theme="hilti-dark"] .bg-slate-900\/80,
+.theme-hilti-dark .bg-slate-900,
+.theme-hilti-dark .bg-slate-900\/95,
+.theme-hilti-dark .bg-slate-900\/90,
+.theme-hilti-dark .bg-slate-900\/80,
 .theme-dark .bg-slate-900,
-.theme-dark .bg-slate-900\/95,
-.theme-dark .bg-slate-900\/90,
 .theme-dark .bg-slate-900\/80 {
-  background-color: #14171f !important;
-  border: 1px solid #282f3d !important;
+  background-color: #292524 !important;
+  border: 1px solid #44403C !important;
+  border-radius: 8px !important;
   box-shadow: 
-    0 6px 24px rgba(0, 0, 0, 0.55),
-    inset 0 1px 0 rgba(245, 158, 11, 0.1) !important;
+    0 6px 16px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 rgba(245, 158, 11, 0.08) !important;
+  color: #FAFAF9 !important;
 }
 
+/* Deep Carbon Recessed Wells: #0C0A09 */
+[data-theme="hilti-dark"] .bg-slate-950,
+[data-theme="hilti-dark"] .bg-slate-950\/95,
+[data-theme="hilti-dark"] .bg-slate-950\/90,
+[data-theme="hilti-dark"] .bg-slate-950\/80,
+[data-theme="hilti-dark"] .bg-slate-950\/70,
+[data-theme="hilti-dark"] .bg-slate-950\/50,
+.theme-hilti-dark .bg-slate-950,
+.theme-hilti-dark .bg-slate-950\/95,
+.theme-hilti-dark .bg-slate-950\/90,
+.theme-hilti-dark .bg-slate-950\/80,
+.theme-hilti-dark .bg-slate-950\/70,
+.theme-hilti-dark .bg-slate-950\/50,
 .theme-dark .bg-slate-950,
-.theme-dark .bg-slate-950\/95,
-.theme-dark .bg-slate-950\/90,
 .theme-dark .bg-slate-950\/80,
 .theme-dark .bg-slate-950\/50 {
-  background-color: #0d1015 !important;
-  border-color: #202633 !important;
+  background-color: #0C0A09 !important;
+  border-color: #44403C !important;
+  color: #FAFAF9 !important;
 }
 
+/* Secondary Controls: #35302D, hover #44403C, border #57534E */
+[data-theme="hilti-dark"] .bg-slate-800,
+[data-theme="hilti-dark"] .bg-slate-800\/90,
+[data-theme="hilti-dark"] .bg-slate-800\/80,
+[data-theme="hilti-dark"] .bg-slate-800\/50,
+.theme-hilti-dark .bg-slate-800,
+.theme-hilti-dark .bg-slate-800\/90,
+.theme-hilti-dark .bg-slate-800\/80,
+.theme-hilti-dark .bg-slate-800\/50,
 .theme-dark .bg-slate-800,
-.theme-dark .bg-slate-800\/90,
-.theme-dark .bg-slate-800\/80,
-.theme-dark .bg-slate-800\/50 {
-  background-color: #1b202a !important;
-  border-color: #313a4a !important;
+.theme-dark .bg-slate-800\/80 {
+  background-color: #35302D !important;
+  border-color: #57534E !important;
+  color: #FAFAF9 !important;
 }
 
-/* Industrial Rugged Dividers */
+[data-theme="hilti-dark"] .bg-slate-800:hover,
+.theme-hilti-dark .bg-slate-800:hover,
+.theme-dark .bg-slate-800:hover {
+  background-color: #44403C !important;
+}
+
+/* Rugged Dividers in Dark Mode */
+[data-theme="hilti-dark"] .border-slate-800,
+[data-theme="hilti-dark"] .border-slate-700,
+[data-theme="hilti-dark"] .border-slate-800\/80,
+[data-theme="hilti-dark"] .border-slate-700\/80,
+.theme-hilti-dark .border-slate-800,
+.theme-hilti-dark .border-slate-700,
 .theme-dark .border-slate-800,
-.theme-dark .border-slate-700,
-.theme-dark .border-slate-800\/80,
-.theme-dark .border-slate-700\/80 {
-  border-color: #262c3a !important;
+.theme-dark .border-slate-700 {
+  border-color: #44403C !important;
 }
 
 /* High-Contrast Sunlight Field Typography */
-.theme-dark .text-white {
-  color: #ffffff !important;
-}
-
+[data-theme="hilti-dark"] .text-white,
+[data-theme="hilti-dark"] .text-slate-100,
+.theme-hilti-dark .text-white,
+.theme-hilti-dark .text-slate-100,
+.theme-dark .text-white,
 .theme-dark .text-slate-100 {
-  color: #f1f5f9 !important;
+  color: #FAFAF9 !important;
 }
 
-.theme-dark .text-slate-300 {
-  color: #cbd5e1 !important;
+[data-theme="hilti-dark"] .text-slate-300,
+[data-theme="hilti-dark"] .text-slate-200,
+.theme-hilti-dark .text-slate-300,
+.theme-hilti-dark .text-slate-200,
+.theme-dark .text-slate-300,
+.theme-dark .text-slate-200 {
+  color: #D6D3D1 !important;
 }
 
-.theme-dark .text-slate-400 {
-  color: #94a3b8 !important;
+[data-theme="hilti-dark"] .text-slate-400,
+[data-theme="hilti-dark"] .text-slate-500,
+.theme-hilti-dark .text-slate-400,
+.theme-hilti-dark .text-slate-500,
+.theme-dark .text-slate-400,
+.theme-dark .text-slate-500 {
+  color: #A8A29E !important;
 }
 
-/* Inputs & Form Controls in Dark Field Mode */
+/* Heavy Machinery Form Inputs in Dark Field Mode */
+[data-theme="hilti-dark"] input,
+[data-theme="hilti-dark"] select,
+[data-theme="hilti-dark"] textarea,
+.theme-hilti-dark input,
+.theme-hilti-dark select,
+.theme-hilti-dark textarea,
 .theme-dark input,
 .theme-dark select,
 .theme-dark textarea {
-  background-color: #101319 !important;
-  border-color: #313a4a !important;
-  color: #ffffff !important;
+  background-color: #0C0A09 !important;
+  border: 2px solid #44403C !important;
+  border-radius: 6px !important;
+  color: #FAFAF9 !important;
 }
 
+[data-theme="hilti-dark"] input:focus,
+[data-theme="hilti-dark"] select:focus,
+[data-theme="hilti-dark"] textarea:focus,
+.theme-hilti-dark input:focus,
+.theme-hilti-dark select:focus,
+.theme-hilti-dark textarea:focus,
+.theme-dark input:focus,
+.theme-dark select:focus,
+.theme-dark textarea:focus {
+  border-color: #F59E0B !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.4) !important;
+  outline: none !important;
+}
+
+[data-theme="hilti-dark"] select option,
+.theme-hilti-dark select option,
 .theme-dark select option {
-  background-color: #161a22 !important;
-  color: #ffffff !important;
+  background-color: #171412 !important;
+  color: #FAFAF9 !important;
 }
 
-/* Heavy Machinery Floating Modals */
+/* Heavy Machinery Floating Modals in Dark Mode: 10px radius */
+[data-theme="hilti-dark"] .fixed.inset-0 .bg-slate-900,
+[data-theme="hilti-dark"] .fixed.inset-0 .bg-slate-950,
+.theme-hilti-dark .fixed.inset-0 .bg-slate-900,
+.theme-hilti-dark .fixed.inset-0 .bg-slate-950,
 .theme-dark .fixed.inset-0 .bg-slate-900,
 .theme-dark .fixed.inset-0 .bg-slate-950 {
-  background-color: #12151d !important;
-  border: 1px solid #333d4f !important;
+  background-color: #171412 !important;
+  border: 2px solid #44403C !important;
+  border-radius: 10px !important;
   box-shadow: 
-    0 25px 65px rgba(0, 0, 0, 0.85),
+    0 25px 65px rgba(0, 0, 0, 0.9),
     inset 0 1px 0 rgba(245, 158, 11, 0.15) !important;
 }
 
-/* Industrial Rugged Scrollbars */
+/* Primary Action in Dark Mode: CAT Safety Amber #F59E0B with Bold Pitch-Black #0C0A09 Text */
+[data-theme="hilti-dark"] aside button.bg-amber-500,
+[data-theme="hilti-dark"] button.bg-amber-500,
+.theme-hilti-dark aside button.bg-amber-500,
+.theme-hilti-dark button.bg-amber-500,
+.theme-dark aside button.bg-amber-500,
+.theme-dark button.bg-amber-500 {
+  background-color: #F59E0B !important;
+  color: #0C0A09 !important;
+  font-weight: 800 !important;
+  border-radius: 6px !important;
+}
+
+[data-theme="hilti-dark"] aside button.bg-amber-500:hover,
+[data-theme="hilti-dark"] button.bg-amber-500:hover,
+.theme-hilti-dark button.bg-amber-500:hover,
+.theme-dark button.bg-amber-500:hover {
+  background-color: #FBBF24 !important;
+}
+
+[data-theme="hilti-dark"] aside button.bg-amber-500 span,
+.theme-hilti-dark aside button.bg-amber-500 span,
+.theme-dark aside button.bg-amber-500 span {
+  color: #0C0A09 !important;
+}
+
+/* Hilti Red Critical Alert */
+[data-theme="hilti-dark"] .bg-rose-600,
+[data-theme="hilti-dark"] .bg-rose-500,
+.theme-hilti-dark .bg-rose-600,
+.theme-hilti-dark .bg-rose-500,
+.theme-dark .bg-rose-600 {
+  background-color: #DC2626 !important;
+  color: #FFFFFF !important;
+}
+
+/* Industrial Rugged Scrollbars in Dark Mode */
+[data-theme="hilti-dark"] ::-webkit-scrollbar,
+.theme-hilti-dark ::-webkit-scrollbar,
 .theme-dark ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
+[data-theme="hilti-dark"] ::-webkit-scrollbar-track,
+.theme-hilti-dark ::-webkit-scrollbar-track,
 .theme-dark ::-webkit-scrollbar-track {
-  background: #0f1217;
+  background: #0C0A09;
 }
+[data-theme="hilti-dark"] ::-webkit-scrollbar-thumb,
+.theme-hilti-dark ::-webkit-scrollbar-thumb,
 .theme-dark ::-webkit-scrollbar-thumb {
-  background: #2b3240;
-  border: 1px solid #3d4659;
+  background: #35302D;
+  border: 1px solid #44403C;
   border-radius: 4px;
 }
+[data-theme="hilti-dark"] ::-webkit-scrollbar-thumb:hover,
+.theme-hilti-dark ::-webkit-scrollbar-thumb:hover,
 .theme-dark ::-webkit-scrollbar-thumb:hover {
-  background: #f59e0b;
+  background: #F59E0B;
 }

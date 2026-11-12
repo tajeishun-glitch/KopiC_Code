@@ -716,7 +716,7 @@ export function InventoryAndQualityModules({
 
             <div className="pt-2 flex items-center justify-between">
               <span className="text-[11px] text-slate-400">
-                Recorded by: <strong className="text-amber-400">{currentUser.name}</strong> ({currentUser.role})
+                Recorded by: <strong className="text-amber-400">{currentUser.name}</strong>
               </span>
               <button
                 onClick={() => {
@@ -1212,7 +1212,7 @@ export function InventoryAndQualityModules({
 
                   {statusSaveMsg[d.defectCode] && (
                     <div className="text-[10px] text-emerald-400 font-mono font-bold">
-                      ✓ Status updated & recorded by {currentUser.name} ({currentUser.role})
+                      ✓ Status updated & recorded by {currentUser.name}
                     </div>
                   )}
 
