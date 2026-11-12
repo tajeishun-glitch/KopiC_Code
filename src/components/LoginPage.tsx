@@ -6,9 +6,16 @@ import { SeedUser } from "@/lib/seed-data";
 interface LoginPageProps {
   users: SeedUser[];
   onLoginSuccess: (user: SeedUser) => void;
+  themeMode?: "DARK" | "LIGHT";
+  onToggleTheme?: () => void;
 }
 
-export function LoginPage({ users, onLoginSuccess }: LoginPageProps) {
+export function LoginPage({
+  users,
+  onLoginSuccess,
+  themeMode = "DARK",
+  onToggleTheme,
+}: LoginPageProps) {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -41,7 +48,11 @@ export function LoginPage({ users, onLoginSuccess }: LoginPageProps) {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col justify-between relative overflow-hidden font-sans">
+    <div className={`min-h-screen flex flex-col justify-between relative overflow-hidden font-sans transition-colors duration-200 ${
+      themeMode === "LIGHT"
+        ? "theme-light bg-slate-100 text-slate-900"
+        : "theme-dark bg-slate-950 text-slate-100"
+    }`}>
       {/* Subtle Engineering Blueprint Grid Background */}
       <div className="absolute inset-0 opacity-10 pointer-events-none bg-[radial-gradient(#f59e0b_1px,transparent_1px)] [background-size:24px_24px]" />
       <div className="absolute -top-40 -left-40 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -67,6 +78,31 @@ export function LoginPage({ users, onLoginSuccess }: LoginPageProps) {
             </p>
           </div>
         </div>
+
+        {onToggleTheme && (
+          <button
+            type="button"
+            onClick={onToggleTheme}
+            className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-bold flex items-center gap-2 transition-all shadow-md ${
+              themeMode === "LIGHT"
+                ? "bg-white/80 hover:bg-white text-slate-800 border-slate-300 shadow-sm"
+                : "bg-slate-800/90 hover:bg-slate-700 text-amber-300 border-amber-500/40"
+            }`}
+            title={`Switch to ${themeMode === "DARK" ? "Apple Spatial Glass (Light)" : "Hilti / CAT Sunlight Field (Dark)"}`}
+          >
+            <span>{themeMode === "LIGHT" ? "🪟" : "🚜"}</span>
+            <span>{themeMode === "LIGHT" ? "Apple Spatial Glass" : "Hilti / CAT Field"}</span>
+            <span
+              className={`text-[9px] px-1.5 py-0.5 rounded font-black ${
+                themeMode === "LIGHT"
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-amber-400 text-slate-950"
+              }`}
+            >
+              {themeMode === "LIGHT" ? "LIGHT" : "DARK"}
+            </span>
+          </button>
+        )}
       </header>
 
       {/* Centered Sign-In Card */}

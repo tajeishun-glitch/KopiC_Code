@@ -803,6 +803,8 @@ export default function BuildSmartAIApp() {
     return (
       <LoginPage
         users={users}
+        themeMode={themeMode}
+        onToggleTheme={() => setThemeMode(themeMode === "DARK" ? "LIGHT" : "DARK")}
         onLoginSuccess={(loggedInUser) => {
           handleSwitchUser(loggedInUser);
           setIsAuthenticated(true);
@@ -1493,14 +1495,35 @@ export default function BuildSmartAIApp() {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse hidden sm:inline" />
             </button>
 
-            {/* TOP-RIGHT THEME TOGGLE (Dark / Light Mode) */}
+            {/* TOP-RIGHT THEME TOGGLE: Apple Spatial Glass (Light) vs Hilti / CAT Sunlight Field (Dark) */}
             <button
               onClick={() => setThemeMode(themeMode === "DARK" ? "LIGHT" : "DARK")}
-              className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-amber-300 font-mono font-bold text-xs flex items-center gap-1.5 transition-all shadow-md"
-              title={`Switch to ${themeMode === "DARK" ? "Light" : "Dark"} Mode`}
+              className={`px-2.5 py-1.5 rounded-lg border font-mono font-bold text-xs flex items-center gap-1.5 transition-all shadow-md group ${
+                themeMode === "DARK"
+                  ? "bg-amber-500/10 hover:bg-amber-500/20 border-amber-500/50 text-amber-300"
+                  : "bg-white/80 hover:bg-white border-slate-300 text-slate-800 shadow-sm"
+              }`}
+              title={`Current: ${
+                themeMode === "DARK"
+                  ? "Hilti / CAT Sunlight Field (Dark)"
+                  : "Apple Spatial Glass (Light)"
+              }. Click to switch theme.`}
             >
-              <span className="text-sm">{themeMode === "DARK" ? "🌙" : "☀️"}</span>
-              <span className="hidden lg:inline">{themeMode === "DARK" ? "Dark" : "Light"}</span>
+              <span className="text-sm group-hover:scale-110 transition-transform">
+                {themeMode === "DARK" ? "🚜" : "🪟"}
+              </span>
+              <span className="hidden xl:inline">
+                {themeMode === "DARK" ? "Hilti/CAT Field" : "Spatial Glass"}
+              </span>
+              <span
+                className={`text-[9px] px-1 py-0.2 rounded font-black hidden sm:inline ${
+                  themeMode === "DARK"
+                    ? "bg-amber-400 text-slate-950"
+                    : "bg-blue-100 text-blue-700"
+                }`}
+              >
+                {themeMode === "DARK" ? "CAT" : "GLASS"}
+              </span>
             </button>
 
             {/* SIGN OUT / SWITCH ACCOUNT BUTTON */}
