@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BuildSmart AI | Gamuda Construction Site Intelligence & Risk Copilot</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-slate-100 text-slate-900 antialiased min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    const INITIAL_USERS = [
+      { id: "usr-pm-01", name: "Ir. Razak Ahmad", role: "PROJECT_MANAGER", title: "Senior Project Manager", assignedProjectCodes: ["PRJ-ALPHA", "PRJ-BETA", "PRJ-GAMMA"] },
+      { id: "usr-eng-01", name: "Engr. Mei Ling Tan", role: "SITE_ENGINEER", title: "Lead Structural & QA/QC Engineer", assignedProjectCodes: ["PRJ-ALPHA", "PRJ-GAMMA"] },
+      { id: "usr-sup-01", name: "Ahmad Faiz Zulkifli", role: "SITE_SUPERVISOR", title: "Senior Site Supervisor", assignedProjectCodes: ["PRJ-ALPHA", "PRJ-BETA"] },
+      { id: "usr-wrk-01", name: "Muthu Krishnan", role: "SITE_WORKER", title: "Structural Foreperson & Yard Crew", assignedProjectCodes: ["PRJ-ALPHA"] }
+    ];
+
+    const INITIAL_PROJECTS = [
+      { projectCode: "PRJ-ALPHA", name: "Project Alpha – MRT3 Titiwangsa Underground Station (CMC302)", location: "Kuala Lumpur", pm: "Ir. Razak Ahmad", startDate: "2026-01-15", plannedEndDate: "2027-08-30", budgetRm: 185000000, spentRm: 124500000, equipmentRentalRm: 4850000, status: "AT_RISK", plannedCompletion: 65, actualCompletion: 56 },
+      { projectCode: "PRJ-BETA", name: "Project Beta – Penang Silicon Island Marine Bridge Pkg 2", location: "Bayan Lepas, Penang", pm: "Ir. Razak Ahmad", startDate: "2026-03-01", plannedEndDate: "2027-11-30", budgetRm: 240000000, spentRm: 92000000, equipmentRentalRm: 6200000, status: "ON_TRACK", plannedCompletion: 42, actualCompletion: 41 },
+      { projectCode: "PRJ-GAMMA", name: "Project Gamma – Gamuda Cove IBS Commercial Podium", location: "Dengkil, Selangor", pm: "Ir. Razak Ahmad", startDate: "2026-02-10", plannedEndDate: "2027-04-15", budgetRm: 95000000, spentRm: 68400000, equipmentRentalRm: 2100000, status: "DELAYED", plannedCompletion: 75, actualCompletion: 62 }
+    ];
+
+    const MATERIALS = [
+      { materialCode: "CEM-001", name: "Portland Cement (CEM I 52.5N)", category: "Cement & Binders", brand: "YTL Castle / Hume", specifications: "MS EN 197-1 CEM I 52.5N, 50kg bag, >=52.5 MPa", unit: "bag", imageUrl: "https://images.unsplash.com/photo-1589939705384-5185137a7f0f?auto=format&fit=crop&w=600&q=80", alternativeCodes: ["CEM-006"], aiCharacteristics: ["50kg multi-ply kraft bag", "Fine grey hydraulic cement powder", "MS EN 197-1 CEM I marking"] },
+      { materialCode: "STL-002", name: "High-Tensile Steel Rebar T16 (Grade B500B)", category: "Reinforcement Steel", brand: "Ann Joo / Southern Steel", specifications: "MS 146 / BS 4449 Grade B500B, 16mm ribbed bar, 12m length", unit: "MT", imageUrl: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=600&q=80", alternativeCodes: ["STL-007"], aiCharacteristics: ["16mm ribbed transverse lug profile", "12m mill-bundled steel bars", "BS 4449 B500B heat tag"] },
+      { materialCode: "TIL-003", name: "Homogeneous Porcelain Floor Tiles (600x600mm)", category: "Architectural Finishes", brand: "Niro Granite", specifications: "ISO 13006 Group BIa, 600x600x10mm, Anti-slip R10", unit: "m2", imageUrl: "https://images.unsplash.com/photo-1615971677499-5467cbab01c0?auto=format&fit=crop&w=600&q=80", alternativeCodes: [], aiCharacteristics: ["600x600mm rectified matte grey tile", "10mm heavy-duty concourse thickness"] },
+      { materialCode: "CON-004", name: "Ready-Mix Concrete Grade C40/50 (Tremie Mix)", category: "Ready-Mix Concrete", brand: "Gamuda Readymix", specifications: "MS EN 206 C40/50, Slump 180±25mm, Waterproof admixture", unit: "m3", imageUrl: "https://images.unsplash.com/photo-1541888946425-d09bb18086f6?auto=format&fit=crop&w=600&q=80", alternativeCodes: [], aiCharacteristics: ["Wet structural concrete slurry", "High slump tremie mix"] },
+      { materialCode: "BLK-005", name: "AAC Lightweight Masonry Blocks (600x200x100mm)", category: "Masonry & IBS Walls", brand: "Starken AAC", specifications: "600x200x100mm cellular block, 4-hr fire rating, MS 2282", unit: "pallet", imageUrl: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?auto=format&fit=crop&w=600&q=80", alternativeCodes: [], aiCharacteristics: ["Cellular lightweight white concrete block", "Palletized shrink-wrap"] }
+    ];
+
+    const INITIAL_VENDORS = [
+      {
+        vendorCode: "V001", name: "YTL Cement Marketing Sdn Bhd", tradeSpecialty: "Cement & Binders", distanceKm: 18.5, cidbGrade: "G7",
+        performance: { totalDeliveries: 50, onTimeDeliveries: 48, lateDeliveries: 2, totalInspectedQty: 12000, acceptedQty: 11820, rejectedQty: 180, openDefectsCount: 0, resolvedDefectsCount: 3, onTimeDeliveryRate: 96.0, qualityAcceptanceRate: 98.5, issueResolutionRate: 100.0, overallScore: 97.8, evaluationStatus: "PREFERRED", aiRiskSummary: "Consistently reliable (96% on-time, 98.5% quality acceptance). Primary recommended cement supplier." },
+        products: [{ materialCode: "CEM-001", unitPriceRm: 21.8, availableExternalQty: 4500, minOrderQty: 100, leadTimeDays: 2, lastUpdated: "2026-11-12 10:30" }]
+      },
+      {
+        vendorCode: "V002", name: "Apex Steel & Metal Trading Sdn Bhd", tradeSpecialty: "Reinforcement Steel", distanceKm: 34.0, cidbGrade: "G6",
+        performance: { totalDeliveries: 20, onTimeDeliveries: 11, lateDeliveries: 9, totalInspectedQty: 800, acceptedQty: 568, rejectedQty: 232, openDefectsCount: 4, resolvedDefectsCount: 1, onTimeDeliveryRate: 55.0, qualityAcceptanceRate: 71.0, issueResolutionRate: 20.0, overallScore: 54.4, evaluationStatus: "DO_NOT_REHIRE", aiRiskSummary: "HIGH RISK: 9 late deliveries & 29% T16 rebar rejected by workers/engineers for heavy corrosion. Flagged against future hiring." },
+        products: [
+          { materialCode: "STL-002", unitPriceRm: 2690.0, availableExternalQty: 180, minOrderQty: 20, leadTimeDays: 6, lastUpdated: "2026-11-12 08:45" },
+          { materialCode: "CEM-001", unitPriceRm: 22.9, availableExternalQty: 600, minOrderQty: 50, leadTimeDays: 4, lastUpdated: "2026-11-12 08:45" }
+        ]
+      },
+      {
+        vendorCode: "V003", name: "MetroSteel Industries (M) Bhd", tradeSpecialty: "High-Tensile Rebar & Cut-and-Bend IBS", distanceKm: 24.2, cidbGrade: "G7",
+        performance: { totalDeliveries: 35, onTimeDeliveries: 33, lateDeliveries: 2, totalInspectedQty: 1450, acceptedQty: 1410, rejectedQty: 40, openDefectsCount: 0, resolvedDefectsCount: 2, onTimeDeliveryRate: 94.3, qualityAcceptanceRate: 97.2, issueResolutionRate: 100.0, overallScore: 96.6, evaluationStatus: "PREFERRED", aiRiskSummary: "Top-performing steel partner (96.6%). Full mill test certificates with 2-day rapid dispatch." },
+        products: [{ materialCode: "STL-002", unitPriceRm: 2780.0, availableExternalQty: 650, minOrderQty: 15, leadTimeDays: 2, lastUpdated: "2026-11-12 11:00" }]
+      },
+      {
+        vendorCode: "V004", name: "Niro Ceramic Commercial Supply", tradeSpecialty: "Architectural Tiles & Finishes", distanceKm: 27.0, cidbGrade: "G7",
+        performance: { totalDeliveries: 24, onTimeDeliveries: 22, lateDeliveries: 2, totalInspectedQty: 5200, acceptedQty: 4888, rejectedQty: 312, openDefectsCount: 1, resolvedDefectsCount: 4, onTimeDeliveryRate: 91.7, qualityAcceptanceRate: 94.0, issueResolutionRate: 80.0, overallScore: 90.3, evaluationStatus: "PREFERRED", aiRiskSummary: "Reliable architectural finish vendor (90.3% score)." },
+        products: [
+          { materialCode: "TIL-003", unitPriceRm: 48.5, availableExternalQty: 3200, minOrderQty: 100, leadTimeDays: 3, lastUpdated: "2026-11-12 10:15" },
+          { materialCode: "BLK-005", unitPriceRm: 310.0, availableExternalQty: 180, minOrderQty: 10, leadTimeDays: 3, lastUpdated: "2026-11-12 10:15" }
+        ]
+      },
+      {
+        vendorCode: "V005", name: "Southern Quarry & Readymix Bhd", tradeSpecialty: "Ready-Mix Concrete & Cement", distanceKm: 14.8, cidbGrade: "G7",
+        performance: { totalDeliveries: 25, onTimeDeliveries: 18, lateDeliveries: 7, totalInspectedQty: 3400, acceptedQty: 2856, rejectedQty: 544, openDefectsCount: 2, resolvedDefectsCount: 3, onTimeDeliveryRate: 72.0, qualityAcceptanceRate: 84.0, issueResolutionRate: 60.0, overallScore: 74.4, evaluationStatus: "WATCHLIST", aiRiskSummary: "WATCHLIST: Transit mixer delays and 2 rejected concrete slump tests on Project Alpha." },
+        products: [
+          { materialCode: "CEM-001", unitPriceRm: 22.4, availableExternalQty: 1900, minOrderQty: 80, leadTimeDays: 3, lastUpdated: "2026-11-12 10:00" },
+          { materialCode: "CON-004", unitPriceRm: 345.0, availableExternalQty: 900, minOrderQty: 20, leadTimeDays: 1, lastUpdated: "2026-11-12 10:00" },
+          { materialCode: "BLK-005", unitPriceRm: 295.0, availableExternalQty: 240, minOrderQty: 10, leadTimeDays: 2, lastUpdated: "2026-11-12 10:00" }
+        ]
+      },
+      {
+        vendorCode: "V006", name: "BinaTeguh Structural Subcontractors", tradeSpecialty: "Structural RC & Rebar Fixing Subcontractor", distanceKm: 9.5, cidbGrade: "G7",
+        performance: { totalDeliveries: 18, onTimeDeliveries: 12, lateDeliveries: 6, totalInspectedQty: 100, acceptedQty: 78, rejectedQty: 22, openDefectsCount: 2, resolvedDefectsCount: 2, onTimeDeliveryRate: 66.7, qualityAcceptanceRate: 78.0, issueResolutionRate: 50.0, overallScore: 67.9, evaluationStatus: "WATCHLIST", aiRiskSummary: "Subcontractor behind schedule by 15% on Structural Work with 2 open rebar spacing workmanship defects." },
+        products: [{ materialCode: "STL-002", unitPriceRm: 2820.0, availableExternalQty: 120, minOrderQty: 10, leadTimeDays: 4, lastUpdated: "2026-11-12 09:15" }]
+      }
+    ];
+
+    const INITIAL_INVENTORY = [
+      { id: "inv-1", projectCode: "PRJ-ALPHA", materialCode: "CEM-001", currentStock: 210, reservedStock: 40, incomingStock: 300, safetyStock: 50, avgDailyConsumption: 50, supplierLeadTimeDays: 3, unitCostRm: 21.8 },
+      { id: "inv-2", projectCode: "PRJ-ALPHA", materialCode: "STL-002", currentStock: 340, reservedStock: 40, incomingStock: 250, safetyStock: 80, avgDailyConsumption: 100, supplierLeadTimeDays: 5, unitCostRm: 2750.0 },
+      { id: "inv-3", projectCode: "PRJ-ALPHA", materialCode: "TIL-003", currentStock: 560, reservedStock: 60, incomingStock: 200, safetyStock: 90, avgDailyConsumption: 45, supplierLeadTimeDays: 3, unitCostRm: 48.5 },
+      { id: "inv-4", projectCode: "PRJ-ALPHA", materialCode: "CON-004", currentStock: 180, reservedStock: 30, incomingStock: 120, safetyStock: 30, avgDailyConsumption: 30, supplierLeadTimeDays: 1, unitCostRm: 345.0 },
+      { id: "inv-5", projectCode: "PRJ-ALPHA", materialCode: "BLK-005", currentStock: 85, reservedStock: 10, incomingStock: 0, safetyStock: 15, avgDailyConsumption: 5, supplierLeadTimeDays: 2, unitCostRm: 295.0 },
+      { id: "inv-6", projectCode: "PRJ-BETA", materialCode: "CEM-001", currentStock: 1200, reservedStock: 100, incomingStock: 0, safetyStock: 80, avgDailyConsumption: 40, supplierLeadTimeDays: 2, unitCostRm: 21.8 },
+      { id: "inv-7", projectCode: "PRJ-BETA", materialCode: "STL-002", currentStock: 920, reservedStock: 70, incomingStock: 150, safetyStock: 60, avgDailyConsumption: 35, supplierLeadTimeDays: 3, unitCostRm: 2780.0 },
+      { id: "inv-8", projectCode: "PRJ-GAMMA", materialCode: "CEM-001", currentStock: 140, reservedStock: 20, incomingStock: 100, safetyStock: 40, avgDailyConsumption: 40, supplierLeadTimeDays: 3, unitCostRm: 22.4 }
+    ];
+
+    const INITIAL_DEFECTS = [
+      { defectCode: "DEF-2026-101", projectCode: "PRJ-ALPHA", materialCode: "STL-002", vendorCode: "V002", deliveryRef: "DO-APEX-7741", category: "Poor product quality", severity: "CRITICAL", rejectedQty: 24, description: "Site Worker Muthu Krishnan flagged heavy surface pitting corrosion on 24 MT of T16 rebar delivered by Apex Steel.", reportedBy: "Muthu Krishnan (SITE_WORKER)", reportedDate: "2026-11-11", status: "OPEN", correctiveAction: "Quarantined 24 MT in Reject Bay; downgraded V002 score to 54.4% (DO_NOT_REHIRE)." },
+      { defectCode: "DEF-2026-102", projectCode: "PRJ-ALPHA", materialCode: "STL-002", vendorCode: "V002", deliveryRef: "DO-APEX-7690", category: "Incomplete delivery", severity: "HIGH", rejectedQty: 0, description: "Delivery arrived 4 days late and 35 MT short against call-off schedule.", reportedBy: "Ahmad Faiz (SITE_SUPERVISOR)", reportedDate: "2026-11-06", status: "IN_PROGRESS", correctiveAction: "Shift primary steel allocation to MetroSteel (V003)." },
+      { defectCode: "DEF-2026-103", projectCode: "PRJ-ALPHA", materialCode: "CON-004", vendorCode: "V005", deliveryRef: "DO-SQR-3318", category: "Incorrect specifications", severity: "HIGH", rejectedQty: 18, description: "Ready-mix C40/50 tremie concrete failed gate slump test (90mm vs required 180mm).", reportedBy: "Engr. Mei Ling Tan (SITE_ENGINEER)", reportedDate: "2026-11-09", status: "OPEN", correctiveAction: "Require night-shift dispatch with retarder admixture sheet." }
+    ];
+
+    const INITIAL_EQUIPMENT = [
+      { equipmentCode: "EQ-EX-001", name: "Crawler Hydraulic Excavator 30T", category: "Heavy machinery", brand: "Komatsu PC300", currentProjectCode: "PRJ-ALPHA", currentLocation: "Zone A Excavation Pit", condition: "GOOD", status: "IN_USE", assignedTo: "Earthworks Team A (Muthu)", expectedReturn: "2026-11-20", maintenanceNote: "OVERDUE: 500-hr hydraulic filter service due 2026-11-10" },
+      { equipmentCode: "EQ-CR-002", name: "Rough-Terrain Mobile Crane 50T", category: "Lifting equipment", brand: "Tadano GR-500EX", currentProjectCode: "PRJ-ALPHA", currentLocation: "Gate B Lifting Bay", condition: "GOOD", status: "IN_USE", assignedTo: "BinaTeguh Subcon Crew", expectedReturn: "2026-11-08 (OVERDUE)", maintenanceNote: "Scheduled PMA calibration 2026-12-01" },
+      { equipmentCode: "EQ-CP-003", name: "Stationary Concrete Boom Pump", category: "Concrete equipment", brand: "Putzmeister BSA", currentProjectCode: "PRJ-ALPHA", currentLocation: "Zone B Slab Deck", condition: "GOOD", status: "AVAILABLE", assignedTo: "", expectedReturn: "", maintenanceNote: "Completed preventive check 2026-11-05" },
+      { equipmentCode: "EQ-RB-004", name: "Electro-Hydraulic Rebar Cutter & Bender", category: "Power tools", brand: "Toyo TY-B42", currentProjectCode: "PRJ-ALPHA", currentLocation: "Steel Yard 1", condition: "DAMAGED", status: "DAMAGED", assignedTo: "", expectedReturn: "", maintenanceNote: "DAMAGED: Hydraulic solenoid seal burst (Reported by Muthu)" },
+      { equipmentCode: "EQ-EX-007", name: "Crawler Excavator 20T (Idle Surplus)", category: "Heavy machinery", brand: "CAT 320 GC", currentProjectCode: "PRJ-BETA", currentLocation: "Penang Yard B", condition: "GOOD", status: "AVAILABLE", assignedTo: "", expectedReturn: "", maintenanceNote: "Available for inter-project transfer to PRJ-ALPHA" }
+    ];
+
+    const INITIAL_MILESTONES = [
+      { milestoneCode: "MS-ALPHA-01", projectCode: "PRJ-ALPHA", name: "Foundation & Diaphragm Wall Works", subcontractorName: "YTL Cement / Gamuda Geotechnics (V001)", plannedProgress: 100, actualProgress: 100, budgetRm: 52.0, spentRm: 51.2, status: "COMPLETED" },
+      { milestoneCode: "MS-ALPHA-02", projectCode: "PRJ-ALPHA", name: "Structural Work (Station Box & Slabs)", subcontractorName: "BinaTeguh Structural Subcontractors (V006)", plannedProgress: 80, actualProgress: 65, budgetRm: 68.0, spentRm: 54.8, status: "DELAYED" },
+      { milestoneCode: "MS-ALPHA-03", projectCode: "PRJ-ALPHA", name: "Electrical Work & Tunnel MEP", subcontractorName: "MetroSteel / Gamuda M&E (V003)", plannedProgress: 50, actualProgress: 35, budgetRm: 38.0, spentRm: 13.5, status: "DELAYED" },
+      { milestoneCode: "MS-ALPHA-04", projectCode: "PRJ-ALPHA", name: "Finishing Work (Concourse Tiling)", subcontractorName: "Niro Ceramic Commercial (V004)", plannedProgress: 20, actualProgress: 10, budgetRm: 27.0, spentRm: 5.0, status: "DELAYED" }
+    ];
+
+    function calcInv(item) {
+      const available = Math.max(0, item.currentStock - item.reservedStock);
+      const rop = item.avgDailyConsumption * item.supplierLeadTimeDays + item.safetyStock;
+      const coverage = item.avgDailyConsumption > 0 ? Number((available / item.avgDailyConsumption).toFixed(1)) : null;
+      const isCritical = coverage !== null && coverage <= item.supplierLeadTimeDays;
+      const isLow = available < rop;
+      return { available, rop, coverage, status: isCritical ? "CRITICAL_SHORTAGE" : isLow ? "LOW_STOCK" : coverage >= 20 ? "EXCESS_SURPLUS" : "HEALTHY" };
+    }
+
+    function App() {
+      const [currentUser, setCurrentUser] = useState(INITIAL_USERS[0]);
+      const [projectCode, setProjectCode] = useState("PRJ-ALPHA");
+      const [tab, setTab] = useState("DASHBOARD");
+      const [vendors, setVendors] = useState(INITIAL_VENDORS);
+      const [inventory, setInventory] = useState(INITIAL_INVENTORY);
+      const [defects, setDefects] = useState(INITIAL_DEFECTS);
+      const [equipments, setEquipments] = useState(INITIAL_EQUIPMENT);
+      const [milestones, setMilestones] = useState(INITIAL_MILESTONES);
+
+      // M01 State
+      const [scanMatCode, setScanMatCode] = useState("STL-002");
+      // M03 Defect Form
+      const [defVendor, setDefVendor] = useState("V002");
+      const [defMat, setDefMat] = useState("STL-002");
+      const [defCat, setDefCat] = useState("Damaged materials");
+      const [defRejQty, setDefRejQty] = useState(12);
+      const [defDesc, setDefDesc] = useState("Worker inspection at Gate B: 12 MT of T16 rebar arrived corroded with pitted surface.");
+      // M04 QR State
+      const [selectedEq, setSelectedEq] = useState("EQ-EX-001");
+      const [eqMsg, setEqMsg] = useState("");
+      // M06 Sim State
+      const [simDelay, setSimDelay] = useState(3);
+      const [simMat, setSimMat] = useState("STL-002");
+
+      const isAuthorized = currentUser.assignedProjectCodes.includes(projectCode);
+      const project = INITIAL_PROJECTS.find(p => p.projectCode === projectCode) || INITIAL_PROJECTS[0];
+      const scannedMat = MATERIALS.find(m => m.materialCode === scanMatCode) || MATERIALS[0];
+      const scannedInv = inventory.find(i => i.projectCode === projectCode && i.materialCode === scanMatCode);
+      const scannedMetrics = scannedInv ? calcInv(scannedInv) : null;
+
+      const handleLogDefect = () => {
+        const newCode = `DEF-2026-${101 + defects.length}`;
+        setDefects([{ defectCode: newCode, projectCode, materialCode: defMat, vendorCode: defVendor, deliveryRef: "DO-SITE-NEW", category: defCat, severity: "HIGH", rejectedQty: Number(defRejQty), description: defDesc, reportedBy: `${currentUser.name} (${currentUser.role})`, reportedDate: "2026-11-12", status: "OPEN", correctiveAction: "Quarantined batch & auto-updated Vendor Evaluation Scorecard." }, ...defects]);
+        setVendors(vendors.map(v => {
+          if (v.vendorCode !== defVendor) return v;
+          const newOpen = v.performance.openDefectsCount + 1;
+          const newRej = v.performance.rejectedQty + Number(defRejQty);
+          const newInsp = v.performance.totalInspectedQty + Math.max(20, Number(defRejQty));
+          const qRate = Number(((v.performance.acceptedQty / newInsp) * 100).toFixed(1));
+          const resRate = Number(((v.performance.resolvedDefectsCount / (newOpen + v.performance.resolvedDefectsCount)) * 100).toFixed(1));
+          const overall = Number((v.performance.onTimeDeliveryRate * 0.4 + qRate * 0.4 + resRate * 0.2).toFixed(1));
+          return { ...v, performance: { ...v.performance, totalInspectedQty: newInsp, rejectedQty: newRej, openDefectsCount: newOpen, qualityAcceptanceRate: qRate, issueResolutionRate: resRate, overallScore: overall, evaluationStatus: overall < 65 ? "DO_NOT_REHIRE" : overall < 85 ? "WATCHLIST" : "PREFERRED" } };
+        }));
+      };
+
+      return (
+        <div className="min-h-screen flex flex-col">
+          <header className="bg-slate-900 text-white sticky top-0 z-30 shadow-md">
+            <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-rose-600 to-teal-500 flex items-center justify-center font-black text-lg">BS</div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-extrabold text-lg">BuildSmart AI</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-400/30">SIMULATED DEMO DATA (BR-018)</span>
+                  </div>
+                  <p className="text-xs text-slate-400">Gamuda Berhad • Site Intelligence, Live Stock, Worker Defect Reflection & AI Risk Copilot</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <select value={projectCode} onChange={e => setProjectCode(e.target.value)} className="bg-slate-800 text-white font-bold px-3 py-1.5 rounded-lg border border-slate-700">
+                  {INITIAL_PROJECTS.map(p => <option key={p.projectCode} value={p.projectCode}>{p.projectCode} – {p.name}</option>)}
+                </select>
+                <select value={currentUser.id} onChange={e => setCurrentUser(INITIAL_USERS.find(u => u.id === e.target.value))} className="bg-slate-800 text-teal-300 font-bold px-3 py-1.5 rounded-lg border border-teal-500/40">
+                  {INITIAL_USERS.map(u => <option key={u.id} value={u.id}>Role: {u.role} — {u.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="bg-slate-950 border-t border-slate-800">
+              <div className="max-w-7xl mx-auto px-4 flex gap-1 overflow-x-auto py-1.5 text-xs">
+                {[
+                  ["DASHBOARD", "1. Dashboard"],
+                  ["M01_SCANNER", "2. M01: AI Image Scanner + Stock/Vendor Check"],
+                  ["M02_INVENTORY", "3. M02: Live Stock Inventory"],
+                  ["M03_QUALITY", "4. M03: Worker Defect Log & Vendor Evaluation"],
+                  ["M04_EQUIPMENT", "5. M04: Tools & Equipment (QR)"],
+                  ["M05_PROGRESS", "6. M05: Project & Subcon Progress"],
+                  ["M06_COPILOT", "7. M06: AI Risk Copilot & Simulator"]
+                ].map(([id, label]) => (
+                  <button key={id} onClick={() => setTab(id)} className={`px-3 py-1.5 rounded-lg font-semibold whitespace-nowrap ${tab === id ? "bg-teal-600 text-white" : "text-slate-300 hover:bg-slate-800"}`}>{label}</button>
+                ))}
+              </div>
+            </div>
+          </header>
+
+          <main className="max-w-7xl w-full mx-auto px-4 py-6 flex-1">
+            {!isAuthorized ? (
+              <div className="bg-white rounded-2xl border-2 border-rose-300 p-8 text-center max-w-lg mx-auto my-8 space-y-3">
+                <div className="text-3xl">🔒</div>
+                <div className="text-xs font-mono font-bold text-rose-600">BR-001 & TC-021 ACCESS CONTROL VERIFIED</div>
+                <h2 className="text-lg font-extrabold">Unauthorized Project Access Denied ({projectCode})</h2>
+                <p className="text-xs text-slate-600">{currentUser.name} ({currentUser.role}) is only assigned to: <strong>{currentUser.assignedProjectCodes.join(", ")}</strong>.</p>
+                <button onClick={() => setProjectCode("PRJ-ALPHA")} className="px-4 py-2 bg-teal-600 text-white rounded-lg text-xs font-bold">Return to PRJ-ALPHA</button>
+              </div>
+            ) : (
+              <>
+                {tab === "DASHBOARD" && (
+                  <div className="space-y-6">
+                    <div className="bg-white rounded-xl border border-slate-200 p-5 flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-teal-100 text-teal-900">ACTIVE ROLE: {currentUser.role}</span>
+                        <h2 className="text-xl font-extrabold mt-1">{project.name}</h2>
+                        <p className="text-xs text-slate-500">PM: {project.pm} • Planned: {project.plannedCompletion}% vs Actual: {project.actualCompletion}% ({project.status})</p>
+                      </div>
+                      <div className="flex gap-2 text-xs">
+                        <button onClick={() => setTab("M01_SCANNER")} className="px-3 py-2 bg-teal-600 text-white rounded-lg font-bold">📸 Scan Product Image (M01)</button>
+                        <button onClick={() => setTab("M03_QUALITY")} className="px-3 py-2 bg-rose-600 text-white rounded-lg font-bold">⚠ Log Vendor Defect (M03)</button>
+                        <button onClick={() => setTab("M06_COPILOT")} className="px-3 py-2 bg-indigo-600 text-white rounded-lg font-bold">🤖 AI Risk Simulator (M06)</button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+                      <div className="bg-white p-4 rounded-xl border border-slate-200"><div className="text-slate-500">Schedule Progress (M05)</div><div className="text-2xl font-extrabold mt-1">{project.actualCompletion}% <span className="text-xs font-normal">/ {project.plannedCompletion}%</span></div><div className="text-rose-600 font-bold mt-1">-9% Variance (Structural Work)</div></div>
+                      <div className="bg-white p-4 rounded-xl border border-slate-200"><div className="text-slate-500">Critical Stock Shortages (M02)</div><div className="text-2xl font-extrabold text-rose-600 mt-1">2 Materials</div><div className="text-slate-600 mt-1">T16 Rebar (3.0d cover) & Cement (&lt;200 ROP)</div></div>
+                      <div className="bg-white p-4 rounded-xl border border-slate-200"><div className="text-slate-500">Vendor Evaluation Alert (M03)</div><div className="text-2xl font-extrabold text-amber-600 mt-1">Apex Steel: 54.4%</div><div className="text-rose-700 font-bold mt-1">DO_NOT_REHIRE (24 MT Corroded)</div></div>
+                      <div className="bg-white p-4 rounded-xl border border-slate-200"><div className="text-slate-500">Critical AI Risks (M06)</div><div className="text-2xl font-extrabold text-indigo-700 mt-1">Score 25/25</div><div className="text-slate-600 mt-1">2-Day Steel Shortage Gap Predicted</div></div>
+                    </div>
+                  </div>
+                )}
+
+                {tab === "M01_SCANNER" && (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div className="lg:col-span-5 bg-white p-5 rounded-xl border border-slate-200 space-y-4">
+                      <h3 className="font-bold text-base">M01: Upload / Select Material Photo</h3>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {MATERIALS.map(m => (
+                          <button key={m.materialCode} onClick={() => setScanMatCode(m.materialCode)} className={`p-2.5 rounded-lg border text-left ${scanMatCode === m.materialCode ? "border-teal-600 bg-teal-50 font-bold" : "border-slate-200"}`}>
+                            <div className="text-teal-700">{m.materialCode}</div>
+                            <div className="truncate">{m.name}</div>
+                          </button>
+                        ))}
+                      </div>
+                      <img src={scannedMat.imageUrl} className="w-full h-48 object-cover rounded-xl border" />
+                      <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">
+                        <strong>BR-002 & BR-003:</strong> AI confidence 95.8%. Visual ID confirmed; verify mill/batch certs for structural compliance.
+                      </div>
+                    </div>
+
+                    <div className="lg:col-span-7 space-y-4">
+                      <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-2 text-xs">
+                        <div className="text-teal-700 font-bold uppercase">1. AI Material Identification</div>
+                        <div className="text-lg font-extrabold">{scannedMat.name} ({scannedMat.materialCode})</div>
+                        <div><strong>Specs:</strong> {scannedMat.specifications}</div>
+                      </div>
+
+                      <div className="bg-white p-5 rounded-xl border-2 border-teal-500/40 space-y-2 text-xs">
+                        <div className="text-teal-700 font-bold uppercase">2. Automatic Live Stock Check on Image Upload ({projectCode})</div>
+                        {scannedInv && scannedMetrics ? (
+                          <div className="grid grid-cols-4 gap-2 text-center pt-1">
+                            <div className="p-2.5 bg-slate-50 rounded border"><div className="text-slate-500">Available Stock</div><div className="text-base font-extrabold text-teal-900">{scannedMetrics.available} {scannedMat.unit}</div></div>
+                            <div className="p-2.5 bg-slate-50 rounded border"><div className="text-slate-500">Reorder Point</div><div className="text-base font-bold">{scannedMetrics.rop} {scannedMat.unit}</div></div>
+                            <div className="p-2.5 bg-slate-50 rounded border"><div className="text-slate-500">Stock Coverage</div><div className="text-base font-extrabold text-rose-700">{scannedMetrics.coverage} days</div></div>
+                            <div className="p-2.5 bg-slate-50 rounded border"><div className="text-slate-500">Status</div><div className="font-bold text-rose-700">{scannedMetrics.status}</div></div>
+                          </div>
+                        ) : <div>No stock record at {projectCode}.</div>}
+                      </div>
+
+                      <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-2 text-xs">
+                        <div className="flex justify-between"><span className="text-teal-700 font-bold uppercase">3. Automatic Vendor Stock, Price & Defect Evaluation Check</span><span className="font-mono text-amber-800 bg-amber-100 px-2 py-0.5 rounded">SIMULATED (BR-018)</span></div>
+                        <table className="w-full text-left border-collapse mt-2">
+                          <thead><tr className="border-b bg-slate-50"><th className="p-2">Vendor</th><th className="p-2">Price</th><th className="p-2">External Stock</th><th className="p-2">Lead Time</th><th className="p-2">Evaluation Score (M03)</th></tr></thead>
+                          <tbody>
+                            {vendors.filter(v => v.products.some(p => p.materialCode === scanMatCode)).map(v => {
+                              const p = v.products.find(pr => pr.materialCode === scanMatCode);
+                              return (
+                                <tr key={v.vendorCode} className="border-b">
+                                  <td className="p-2 font-bold">{v.name} ({v.vendorCode})</td>
+                                  <td className="p-2 font-bold">RM {p.unitPriceRm}/{scannedMat.unit}</td>
+                                  <td className="p-2 text-teal-800 font-semibold">{p.availableExternalQty} {scannedMat.unit}</td>
+                                  <td className="p-2">{p.leadTimeDays} days</td>
+                                  <td className="p-2"><span className={`px-2 py-0.5 rounded font-bold ${v.performance.evaluationStatus === "PREFERRED" ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"}`}>{v.performance.overallScore}% ({v.performance.evaluationStatus})</span></td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {tab === "M02_INVENTORY" && (
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-4 text-xs">
+                    <h2 className="text-lg font-bold">M02: Smart Live Stock Inventory — {projectCode} (Available = Current − Reserved; Incoming Separate)</h2>
+                    <table className="w-full text-left border-collapse">
+                      <thead><tr className="bg-slate-100 border-b"><th className="p-2.5">Material</th><th className="p-2.5">Current</th><th className="p-2.5">Reserved</th><th className="p-2.5 bg-teal-50">Available</th><th className="p-2.5">Incoming (Separate)</th><th className="p-2.5">Daily Burn</th><th className="p-2.5">Reorder Point</th><th className="p-2.5">Coverage Days</th><th className="p-2.5">Quick Action</th></tr></thead>
+                      <tbody>
+                        {inventory.filter(i => i.projectCode === projectCode).map(inv => {
+                          const m = calcInv(inv);
+                          const mat = MATERIALS.find(mt => mt.materialCode === inv.materialCode);
+                          return (
+                            <tr key={inv.id} className="border-b">
+                              <td className="p-2.5 font-bold">{mat?.name} ({inv.materialCode})</td>
+                              <td className="p-2.5">{inv.currentStock}</td>
+                              <td className="p-2.5">{inv.reservedStock}</td>
+                              <td className="p-2.5 bg-teal-50 font-extrabold text-teal-900">{m.available} {mat?.unit}</td>
+                              <td className="p-2.5 text-blue-700 font-semibold">+{inv.incomingStock}</td>
+                              <td className="p-2.5">{inv.avgDailyConsumption}/day</td>
+                              <td className="p-2.5 font-bold">{m.rop}</td>
+                              <td className="p-2.5 font-extrabold">{m.coverage} days ({m.status})</td>
+                              <td className="p-2.5">
+                                <button onClick={() => setInventory(inventory.map(x => x.id === inv.id ? { ...x, currentStock: Math.max(0, x.currentStock - 20) } : x))} className="px-2 py-1 bg-amber-600 text-white rounded font-bold mr-1">-20 Consume</button>
+                                <button onClick={() => setInventory(inventory.map(x => x.id === inv.id ? { ...x, currentStock: x.currentStock + 50 } : x))} className="px-2 py-1 bg-emerald-600 text-white rounded font-bold">+50 Receipt</button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {tab === "M03_QUALITY" && (
+                  <div className="space-y-6 text-xs">
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-3">
+                      <h2 className="text-lg font-bold">M03: Live Vendor Performance Scorecard (40% Delivery + 40% Quality + 20% Resolution)</h2>
+                      <table className="w-full text-left border-collapse">
+                        <thead><tr className="bg-slate-100 border-b"><th className="p-2.5">Vendor</th><th className="p-2.5">Overall Score</th><th className="p-2.5">On-Time %</th><th className="p-2.5">Quality Acceptance %</th><th className="p-2.5">Open Defects</th><th className="p-2.5">Future Tender Status</th><th className="p-2.5">AI Risk Insight</th></tr></thead>
+                        <tbody>
+                          {vendors.map(v => (
+                            <tr key={v.vendorCode} className="border-b">
+                              <td className="p-2.5 font-bold">{v.name} ({v.vendorCode})</td>
+                              <td className="p-2.5 text-sm font-extrabold">{v.performance.overallScore}%</td>
+                              <td className="p-2.5">{v.performance.onTimeDeliveryRate}%</td>
+                              <td className="p-2.5">{v.performance.qualityAcceptanceRate}%</td>
+                              <td className="p-2.5 font-bold text-rose-700">{v.performance.openDefectsCount}</td>
+                              <td className="p-2.5"><span className={`px-2 py-0.5 rounded font-bold ${v.performance.evaluationStatus === "PREFERRED" ? "bg-emerald-100 text-emerald-800" : v.performance.evaluationStatus === "WATCHLIST" ? "bg-amber-100 text-amber-800" : "bg-rose-100 text-rose-800"}`}>{v.performance.evaluationStatus}</span></td>
+                              <td className="p-2.5 text-slate-600">{v.performance.aiRiskSummary}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                      <div className="lg:col-span-5 bg-white p-5 rounded-xl border border-slate-200 space-y-3">
+                        <h3 className="font-bold text-sm text-rose-700">Worker & Engineer Defect Reflection Form (TC-008)</h3>
+                        <select value={defVendor} onChange={e => setDefVendor(e.target.value)} className="w-full border rounded p-2">
+                          {vendors.map(v => <option key={v.vendorCode} value={v.vendorCode}>{v.vendorCode} – {v.name}</option>)}
+                        </select>
+                        <select value={defMat} onChange={e => setDefMat(e.target.value)} className="w-full border rounded p-2">
+                          {MATERIALS.map(m => <option key={m.materialCode} value={m.materialCode}>{m.materialCode} – {m.name}</option>)}
+                        </select>
+                        <input type="number" value={defRejQty} onChange={e => setDefRejQty(e.target.value)} className="w-full border rounded p-2" placeholder="Rejected Qty" />
+                        <textarea rows="2" value={defDesc} onChange={e => setDefDesc(e.target.value)} className="w-full border rounded p-2" />
+                        <button onClick={handleLogDefect} className="w-full py-2 bg-rose-600 text-white font-bold rounded-lg">Submit Defect & Auto-Recalculate Vendor Score</button>
+                      </div>
+                      <div className="lg:col-span-7 bg-white p-5 rounded-xl border border-slate-200 space-y-2">
+                        <h3 className="font-bold text-sm">Logged Site Defects ({defects.length})</h3>
+                        {defects.map(d => (
+                          <div key={d.defectCode} className="p-3 rounded-lg bg-slate-50 border space-y-1">
+                            <div className="flex justify-between font-bold"><span>{d.defectCode} • Vendor {d.vendorCode} • {d.category}</span><span className="text-rose-600">{d.severity} (Rejected: {d.rejectedQty})</span></div>
+                            <p>{d.description}</p>
+                            <div className="text-slate-500">Reported by: {d.reportedBy} on {d.reportedDate}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {tab === "M04_EQUIPMENT" && (
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-4 text-xs">
+                    <h2 className="text-lg font-bold">M04: On-Site Tools & Equipment QR Management (Conflict Check BR-012 / TC-022)</h2>
+                    {eqMsg && <div className="p-3 rounded-lg bg-amber-50 border border-amber-300 font-bold text-amber-900">{eqMsg}</div>}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {equipments.map(eq => (
+                        <div key={eq.equipmentCode} className="p-4 rounded-xl border bg-slate-50 space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="font-bold text-sm">{eq.name} ({eq.equipmentCode})</span>
+                            <span className={`px-2 py-0.5 rounded font-bold ${eq.status === "AVAILABLE" ? "bg-emerald-100 text-emerald-800" : eq.status === "DAMAGED" ? "bg-rose-100 text-rose-800" : "bg-blue-100 text-blue-800"}`}>{eq.status}</span>
+                          </div>
+                          <div>Project: <strong>{eq.currentProjectCode}</strong> • Location: {eq.currentLocation}</div>
+                          <div>Assigned: {eq.assignedTo || "Available"} • {eq.maintenanceNote}</div>
+                          <div className="flex gap-2 pt-1">
+                            <button onClick={() => {
+                              if (eq.status !== "AVAILABLE") { setEqMsg(`BR-012 & TC-022 Conflict Prevented: ${eq.equipmentCode} is already ${eq.status}! Cannot double-allocate.`); return; }
+                              setEquipments(equipments.map(x => x.equipmentCode === eq.equipmentCode ? { ...x, status: "IN_USE", assignedTo: `${currentUser.name} Team` } : x));
+                              setEqMsg(`✓ Allocated ${eq.equipmentCode} to ${currentUser.name} Team.`);
+                            }} className="px-2.5 py-1 bg-teal-600 text-white rounded font-bold">Allocate (TC-012)</button>
+                            <button onClick={() => {
+                              setEquipments(equipments.map(x => x.equipmentCode === eq.equipmentCode ? { ...x, status: "AVAILABLE", assignedTo: "" } : x));
+                              setEqMsg(`✓ Returned ${eq.equipmentCode} to AVAILABLE status (TC-013).`);
+                            }} className="px-2.5 py-1 bg-slate-800 text-white rounded font-bold">Return (TC-013)</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {tab === "M05_PROGRESS" && (
+                  <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-4 text-xs">
+                    <h2 className="text-lg font-bold">M05: Visual Project & Subcontractor Progress — {projectCode}</h2>
+                    <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-950">
+                      <strong>⚠ FR-M05-008 Governance Rule:</strong> Overall budget burn (67.3%) exceeds actual completion (56%). Higher spending vs completion is <strong>flagged for investigation</strong> (rework on Grid C4-C7 vs front-loaded procurement) rather than automatically classified as material wastage.
+                    </div>
+                    <div className="space-y-3">
+                      {milestones.filter(m => m.projectCode === projectCode).map(ms => (
+                        <div key={ms.milestoneCode} className="p-4 rounded-xl border bg-slate-50 space-y-2">
+                          <div className="flex justify-between font-bold text-sm">
+                            <span>{ms.name} ({ms.milestoneCode}) — Subcon: {ms.subcontractorName}</span>
+                            <span className={ms.actualProgress < ms.plannedProgress ? "text-rose-600" : "text-emerald-700"}>Planned: {ms.plannedProgress}% | Actual: {ms.actualProgress}%</span>
+                          </div>
+                          <div className="h-2.5 w-full bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-teal-600" style={{ width: `${ms.actualProgress}%` }}></div></div>
+                          <button onClick={() => setMilestones(milestones.map(x => x.milestoneCode === ms.milestoneCode ? { ...x, actualProgress: Math.min(100, x.actualProgress + 5) } : x))} className="px-3 py-1 bg-teal-600 text-white rounded font-bold">+5% Update Daily Progress (TC-015)</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {tab === "M06_COPILOT" && (
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 text-xs">
+                    <div className="lg:col-span-6 bg-white p-5 rounded-xl border border-slate-200 space-y-3">
+                      <span className="text-indigo-700 font-bold uppercase">FR-M06-007 & BR-020 • Interactive What-If Scenario Simulator</span>
+                      <h3 className="text-base font-bold">Simulate Delayed Delivery Impact (Non-Mutating Sandbox)</h3>
+                      <select value={simMat} onChange={e => setSimMat(e.target.value)} className="w-full border rounded p-2 font-bold">
+                        <option value="STL-002">STL-002 – High-Tensile Steel Rebar T16 (300 MT Available, 100 MT/d burn)</option>
+                        <option value="CEM-001">CEM-001 – Portland Cement (170 bags Available, 50 bags/d burn)</option>
+                      </select>
+                      <label className="block font-bold">Simulate Additional Delivery Delay: +{simDelay} Days</label>
+                      <input type="range" min="1" max="10" value={simDelay} onChange={e => setSimDelay(Number(e.target.value))} className="w-full accent-indigo-600" />
+                      <div className="p-4 rounded-xl bg-indigo-50 border border-indigo-200 space-y-2">
+                        <div className="font-extrabold text-sm text-indigo-950">Simulated Result: {simDelay + 2}-Day Stockout Gap (Risk Score: 25/25 CRITICAL)</div>
+                        <p>Available stock covers <strong>3.0 days</strong>. With a +{simDelay}-day delay, total wait reaches {5 + simDelay} days, halting Structural Work (MS-ALPHA-02) and exposing <strong>RM {((simDelay + 2) * 24000).toLocaleString()}</strong> in idle crane/crew standby cost.</p>
+                        <div className="font-bold text-teal-900">AI Recommended Mitigations: 1) Transfer 200 MT surplus from Project Beta (850 MT available). 2) Issue split order to Preferred Vendor MetroSteel (V003, 96.6% score, 2-day lead time).</div>
+                        <div className="text-[10px] text-slate-500">Explainable AI (FR-M06-009): Uses live M02 inventory & M03 vendor records. Actual DB records unmodified (BR-020).</div>
+                      </div>
+                    </div>
+                    <div className="lg:col-span-6 bg-white p-5 rounded-xl border border-slate-200 space-y-3">
+                      <span className="text-rose-700 font-bold uppercase">FR-M06-002 to FR-M06-006 • Cross-Module Active Risks</span>
+                      <div className="p-3.5 rounded-xl border bg-rose-50/50 space-y-1">
+                        <div className="font-bold text-rose-900">[CRITICAL 25/25] RSK-ALPHA-001: T16 Steel Rebar 2-Day Shortage Gap</div>
+                        <p>300 MT available covers 3.0 days at 100 MT/day vs 5-day delivery lead time.</p>
+                      </div>
+                      <div className="p-3.5 rounded-xl border bg-rose-50/50 space-y-1">
+                        <div className="font-bold text-rose-900">[CRITICAL 20/25] RSK-ALPHA-002: Vendor Apex Steel (V002) Chronic Delays & 29% Reject Rate</div>
+                        <p>Score dropped to 54.4% (DO_NOT_REHIRE) after 24 MT corroded rebar rejected by worker Muthu Krishnan.</p>
+                      </div>
+                      <div className="p-3.5 rounded-xl border bg-amber-50/50 space-y-1">
+                        <div className="font-bold text-amber-900">[HIGH 16/25] RSK-ALPHA-004: Rebar Bender EQ-RB-004 Damaged & Excavator Service Overdue</div>
+                        <p>On-site rebar fabrication reduced by 40%; transfer idle Excavator EQ-EX-007 from PRJ-BETA.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

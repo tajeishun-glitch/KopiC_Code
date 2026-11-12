@@ -1,0 +1,3 @@
+@echo off
+echo Launching BuildSmart AI (Gamuda Construction Site Intelligence Platform)...
+start "" "%~dp0public\standalone-app.html"

@@ -1,0 +1,408 @@
+// BuildSmart AI - Unified Site Intelligence Database Schema (SQLite / Prisma)
+// Scope: Project Manager, Site Supervisor, Site Engineer, Site Worker
+// Focus: AI Material Recognition + Stock/Vendor Check (M01), Live Stock Inventory (M02),
+//        Worker/Engineer Defect Reflection & Automated Vendor Evaluation (M03),
+//        QR Equipment Management (M04), Visual Subcontractor & Project Progress (M05),
+//        AI Risk Copilot & Predictive Scenario Simulation (M06).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(cuid())
+  userCode     String        @unique
+  name         String
+  email        String        @unique
+  role         String        // PROJECT_MANAGER | SITE_SUPERVISOR | SITE_ENGINEER | SITE_WORKER
+  title        String
+  avatarUrl    String?
+  projectUsers ProjectUser[]
+  auditLogs    AuditLog[]
+  createdAt    DateTime      @default(now())
+}
+
+model Project {
+  id                  String                @id @default(cuid())
+  projectCode         String                @unique
+  name                String
+  location            String
+  projectManagerName  String
+  startDate           String
+  plannedEndDate      String
+  actualEndDate       String?
+  budgetRm            Float
+  spentRm             Float
+  equipmentRentalRm   Float                 @default(0)
+  status              String                // ON_TRACK | AT_RISK | DELAYED | COMPLETED
+  plannedCompletion   Float                 // 0 - 100
+  actualCompletion    Float                 // 0 - 100
+  projectUsers        ProjectUser[]
+  inventories         ProjectInventory[]
+  transactions        MaterialTransaction[]
+  inspections         QualityInspection[]
+  defects             DefectRecord[]
+  equipments          Equipment[]
+  milestones          ProjectMilestone[]
+  progressUpdates     ProjectProgress[]
+  photos              ProjectPhoto[]
+  risks               Risk[]
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+}
+
+model ProjectUser {
+  id        String  @id @default(cuid())
+  projectId String
+  userId    String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
+
+model Material {
+  id               String                @id @default(cuid())
+  materialCode     String                @unique
+  name             String
+  category         String
+  brand            String
+  specifications   String
+  unit             String
+  description      String
+  imageUrl         String
+  alternativeCodes String?               // Comma-separated alternative materialCodes (requires spec verification per BR-003)
+  vendorProducts   VendorProduct[]
+  inventories      ProjectInventory[]
+  transactions     MaterialTransaction[]
+  inspections      QualityInspection[]
+  defects          DefectRecord[]
+}
+
+model Vendor {
+  id                  String              @id @default(cuid())
+  vendorCode          String              @unique
+  name                String
+  tradeSpecialty      String
+  address             String
+  contactPerson       String
+  contactPhone        String
+  contactEmail        String
+  distanceKm          Float
+  cidbGrade           String              @default("G7")
+  dataSource          String              @default("SIMULATED") // BR-018
+  vendorProducts      VendorProduct[]
+  performance         VendorPerformance?
+  inspections         QualityInspection[]
+  defects             DefectRecord[]
+  assignedMilestones  ProjectMilestone[]
+}
+
+model VendorProduct {
+  id                  String   @id @default(cuid())
+  vendorId            String
+  materialId          String
+  unitPriceRm         Float
+  availableExternalQty Float   // BR-004: Strictly external supplier stock
+  minOrderQty         Float
+  leadTimeDays        Int
+  isExactSpecMatch    Boolean  @default(true)
+  dataSource          String   @default("SIMULATED")
+  lastUpdated         String   // BR-005: Timestamp for external stock
+  vendor              Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  material            Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, materialId])
+}
+
+model VendorPerformance {
+  id                    String @id @default(cuid())
+  vendorId              String @unique
+  totalDeliveries       Int
+  onTimeDeliveries      Int
+  lateDeliveries        Int
+  totalInspectedQty     Float
+  acceptedQty           Float
+  rejectedQty           Float
+  openDefectsCount      Int
+  resolvedDefectsCount  Int
+  onTimeDeliveryRate    Float  // On-time / Total * 100 (40% weight)
+  qualityAcceptanceRate Float  // Accepted / Inspected * 100 (40% weight)
+  issueResolutionRate   Float  // Resolved / Total Defects * 100 (20% weight)
+  overallScore          Float  // 0 - 100 weighted score
+  evaluationStatus      String // PREFERRED | WATCHLIST | DO_NOT_REHIRE
+  aiRiskSummary         String
+  lastEvaluatedAt       String
+  vendor                Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model ProjectInventory {
+  id                   String   @id @default(cuid())
+  projectId            String
+  materialId           String
+  currentStock         Float
+  reservedStock        Float
+  incomingStock        Float    // FR-M02-001: Displayed separately, never counted in Available Stock
+  minStock             Float
+  safetyStock          Float
+  avgDailyConsumption  Float
+  supplierLeadTimeDays Int
+  unitCostRm           Float
+  lastUpdated          String
+  project              Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  material             Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, materialId])
+}
+
+model MaterialTransaction {
+  id                 String   @id @default(cuid())
+  transactionCode    String   @unique
+  projectId          String
+  materialId         String
+  transactionType    String   // RECEIPT | CONSUMPTION | RESERVATION | ADJUSTMENT | TRANSFER_IN | TRANSFER_OUT
+  quantity           Float
+  workActivity       String?
+  deliveryRef        String?
+  vendorName         String?
+  recordedBy         String
+  recordedByRole     String
+  verificationStatus String   // VERIFIED | PENDING_VERIFICATION | REJECTED
+  remarks            String?
+  transactionDate    String
+  project            Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  material           Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+}
+
+model QualityInspection {
+  id               String   @id @default(cuid())
+  inspectionCode   String   @unique
+  projectId        String
+  materialId       String
+  vendorId         String
+  deliveryRef      String
+  inspectionDate   String
+  result           String   // ACCEPTED | PARTIALLY_ACCEPTED | REJECTED | PENDING_INSPECTION
+  acceptedQty      Float
+  rejectedQty      Float    // BR-009: Rejected materials are never added to usable inventory
+  inspectedBy      String
+  comments         String
+  photoUrl         String?
+  project          Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  material         Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  vendor           Vendor   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+}
+
+model DefectRecord {
+  id                String             @id @default(cuid())
+  defectCode        String             @unique
+  projectId         String
+  materialId        String?
+  vendorId          String
+  deliveryRef       String?
+  category          String             // Damaged materials | Incorrect specifications | Wrong product delivered | Incomplete delivery | Poor product quality | Packaging damage | Subcontractor workmanship
+  severity          String             // LOW | MEDIUM | HIGH | CRITICAL
+  rejectedQty       Float              @default(0)
+  description       String
+  reportedBy        String
+  reportedByRole    String
+  reportedDate      String
+  photoUrl          String?
+  status            String             // OPEN | IN_PROGRESS | RESOLVED | CLOSED
+  project           Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  material          Material?          @relation(fields: [materialId], references: [id])
+  vendor            Vendor             @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  correctiveActions CorrectiveAction[]
+}
+
+model CorrectiveAction {
+  id               String       @id @default(cuid())
+  defectId         String
+  actionDescription String
+  responsibleParty String
+  targetDate       String
+  completedDate    String?
+  status           String       // OPEN | IN_PROGRESS | RESOLVED | CLOSED
+  resolutionNotes  String?
+  defect           DefectRecord @relation(fields: [defectId], references: [id], onDelete: Cascade)
+}
+
+model Equipment {
+  id                String                @id @default(cuid())
+  equipmentCode     String                @unique
+  name              String
+  category          String                // Heavy machinery | Power tools | Electrical equipment | Lifting equipment | Concrete equipment | Safety equipment
+  brand             String
+  model             String
+  serialNumber      String                @unique
+  currentProjectId  String
+  currentLocation   String
+  condition         String                // GOOD | FAIR | NEEDS_INSPECTION | DAMAGED
+  status            String                // AVAILABLE | IN_USE | RESERVED | MAINTENANCE | DAMAGED | MISSING
+  assignedTo        String?
+  expectedReturn    String?
+  qrCodePayload     String                @unique
+  dailyRentalCostRm Float                 @default(0)
+  project           Project               @relation(fields: [currentProjectId], references: [id], onDelete: Cascade)
+  allocations       EquipmentAllocation[]
+  movements         EquipmentMovement[]
+  maintenances      EquipmentMaintenance[]
+  incidents         EquipmentIncident[]
+}
+
+model EquipmentAllocation {
+  id                 String    @id @default(cuid())
+  equipmentId        String
+  projectId          String
+  assignedWorkerTeam String
+  allocatedBy        String
+  allocationDate     String
+  expectedReturnDate String
+  actualReturnDate   String?
+  returnCondition    String?
+  status             String    // ACTIVE | RETURNED | OVERDUE
+  remarks            String?
+  equipment          Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+}
+
+model EquipmentMovement {
+  id                   String    @id @default(cuid())
+  equipmentId          String
+  sourceProjectCode    String
+  destProjectCode      String
+  transferDate         String
+  approvedBy           String
+  movementStatus       String    // COMPLETED | IN_TRANSIT | PENDING_APPROVAL
+  remarks              String?
+  equipment            Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+}
+
+model EquipmentMaintenance {
+  id              String    @id @default(cuid())
+  equipmentId     String
+  maintenanceType String    // PREVENTIVE | CORRECTIVE | SAFETY_CALIBRATION
+  scheduledDate   String
+  inspectionDate  String?
+  completedDate   String?
+  costRm          Float
+  description     String
+  status          String    // SCHEDULED | OVERDUE | IN_PROGRESS | COMPLETED
+  equipment       Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+}
+
+model EquipmentIncident {
+  id           String    @id @default(cuid())
+  equipmentId  String
+  projectCode  String
+  incidentType String    // DAMAGED | MISSING | BREAKDOWN
+  description  String
+  photoUrl     String?
+  reportedBy   String
+  reportedDate String
+  status       String    // OPEN | UNDER_REPAIR | RESOLVED
+  equipment    Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+}
+
+model ProjectMilestone {
+  id                String    @id @default(cuid())
+  milestoneCode     String    @unique
+  projectId         String
+  name              String
+  subcontractorId   String?
+  responsibleTeam   String
+  plannedStartDate  String
+  plannedEndDate    String
+  actualStartDate   String?
+  actualEndDate     String?
+  plannedProgress   Float     // 0 - 100
+  actualProgress    Float     // 0 - 100
+  budgetAllocatedRm Float     @default(0)
+  actualSpentRm     Float     @default(0)
+  status            String    // COMPLETED | ON_TRACK | DELAYED | NOT_STARTED
+  project           Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  subcontractor     Vendor?   @relation(fields: [subcontractorId], references: [id])
+}
+
+model ProjectProgress {
+  id             String  @id @default(cuid())
+  projectId      String
+  milestoneCode  String
+  milestoneName  String
+  progressDate   String
+  completionPct  Float
+  workCompleted  String
+  workOutstanding String
+  remarks        String?
+  updatedBy      String
+  photoUrl       String?
+  project        Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ProjectPhoto {
+  id            String  @id @default(cuid())
+  projectId     String
+  milestoneCode String
+  milestoneName String
+  photoUrl      String
+  description   String
+  uploadedBy    String
+  uploadDate    String
+  project       Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Risk {
+  id                String  @id @default(cuid())
+  riskCode          String  @unique
+  projectId         String
+  category          String  // MATERIAL | VENDOR | EQUIPMENT | PROJECT
+  title             String
+  description       String
+  sourceData        String  // Explainable AI source records & timestamps (FR-M06-009)
+  likelihood        Int     // 1 to 5
+  impact            Int     // 1 to 5
+  riskScore         Int     // Likelihood * Impact (1-25)
+  riskLevel         String  // LOW (1-4) | MEDIUM (5-9) | HIGH (10-16) | CRITICAL (17-25)
+  recommendedAction String
+  riskOwner         String
+  status            String  // OPEN | ACKNOWLEDGED | IN_PROGRESS | RESOLVED | CLOSED
+  identifiedDate    String
+  resolutionNotes   String?
+  project           Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id          String  @id @default(cuid())
+  alertCode   String  // AL-001 to AL-010
+  projectId   String
+  title       String
+  description String
+  relatedRef  String
+  priority    String  // CRITICAL | HIGH | MEDIUM | LOW
+  targetRoles String  // Comma-separated roles
+  targetModule String // M01 | M02 | M03 | M04 | M05 | M06
+  isRead      Boolean @default(false)
+  createdAt   String
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  auditCode     String   @unique
+  userId        String
+  userName      String
+  userRole      String
+  projectId     String
+  module        String
+  action        String
+  recordId      String
+  previousValue String
+  newValue      String
+  timestamp     String
+  user          User     @relation(fields: [userId], references: [id])
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
